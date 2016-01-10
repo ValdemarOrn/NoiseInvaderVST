@@ -35,9 +35,12 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	parameters[(int)Parameters::InputGain] = 0.5;
 	parameters[(int)Parameters::KneeDb] = 0.5;
 	parameters[(int)Parameters::OutputGain] = 0.5;
-	parameters[(int)Parameters::Ratio] = 0.4;
+	parameters[(int)Parameters::SignalFloor] = 0.0;
+	parameters[(int)Parameters::RatioOpen] = 0.4;
+	parameters[(int)Parameters::RatioClose] = 0.4;
 	parameters[(int)Parameters::ReleaseMs] = 0.4;
-	parameters[(int)Parameters::ThresholdDb] = 0.3;
+	parameters[(int)Parameters::ThresholdCloseRelativeDb] = 0.1;
+	parameters[(int)Parameters::ThresholdOpenDb] = 0.3;
 
 	createDevice();
 }
@@ -60,6 +63,8 @@ void NoiseGateVst::getProgramName(char* name)
 
 void NoiseGateVst::setParameter(VstInt32 index, float value)
 {
+	parameters[index] = value;
+
 	switch ((Parameters)index)
 	{
 	case Parameters::Enabled:
@@ -80,16 +85,29 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 	case Parameters::KneeDb:
 		kernel->KneeDb = 0.01 + value * value * 12.0;
 		break;
-	case Parameters::Ratio:
-		kernel->Ratio = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
+	case Parameters::SignalFloor:
+		kernel->SignalFloor = -50 - value * 100;
 		break;
-	case Parameters::ThresholdDb:
-		kernel->ThresholdDb = -ValueTables::Get(1 - value, ValueTables::Response2Oct) * 80;
+	case Parameters::RatioOpen:
+		kernel->RatioOpen = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
+		break;
+	case Parameters::RatioClose:
+		kernel->RatioClose = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
+		break;
+	case Parameters::ThresholdOpenDb:
+		kernel->ThresholdOpenDb = -ValueTables::Get(1 - parameters[(int)Parameters::ThresholdOpenDb], ValueTables::Response2Oct) * 80;
+		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;
+		// since we're changing more than one parameter, need to notify the host
+		setParameterAutomated((int)Parameters::ThresholdCloseRelativeDb, parameters[(int)Parameters::ThresholdCloseRelativeDb]);
+		//updateDisplay();
+		break;
+	case Parameters::ThresholdCloseRelativeDb:
+		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;		
 		break;
 	}
 
 	kernel->UpdateAll();
-	parameters[index] = value;
+	
 }
 
 float NoiseGateVst::getParameter(VstInt32 index)
@@ -119,11 +137,20 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 	case Parameters::KneeDb:
 		strcpy(label, "Knee");
 		break;
-	case Parameters::Ratio:
-		strcpy(label, "Ratio");
+	case Parameters::SignalFloor:
+		strcpy(label, "Signal Floor");
 		break;
-	case Parameters::ThresholdDb:
-		strcpy(label, "Threshold");
+	case Parameters::RatioOpen:
+		strcpy(label, "Ratio Open");
+		break;
+	case Parameters::RatioClose:
+		strcpy(label, "Ratio Close");
+		break;
+	case Parameters::ThresholdOpenDb:
+		strcpy(label, "Thresh. Open");
+		break;
+	case Parameters::ThresholdCloseRelativeDb:
+		strcpy(label, "Thresh. Close");
 		break;
 	}
 }
@@ -150,11 +177,20 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 	case Parameters::KneeDb:
 		sprintf(text, "%.1f", kernel->KneeDb);
 		break;
-	case Parameters::Ratio:
-		sprintf(text, "%.1f", kernel->Ratio);
+	case Parameters::SignalFloor:
+		sprintf(text, "%i", (int)kernel->SignalFloor);
 		break;
-	case Parameters::ThresholdDb:
-		sprintf(text, "%.1f", kernel->ThresholdDb);
+	case Parameters::RatioOpen:
+		sprintf(text, "%.1f", kernel->RatioOpen);
+		break;
+	case Parameters::RatioClose:
+		sprintf(text, "%.1f", kernel->RatioClose);
+		break;
+	case Parameters::ThresholdOpenDb:
+		sprintf(text, "%.1f", kernel->ThresholdOpenDb);
+		break;
+	case Parameters::ThresholdCloseRelativeDb:
+		sprintf(text, "%.1f", kernel->ThresholdCloseDb);
 		break;
 	}
 }
@@ -181,10 +217,15 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 	case Parameters::KneeDb:
 		strcpy(label, "dB");
 		break;
-	case Parameters::Ratio:
+	case Parameters::SignalFloor:
+		strcpy(label, "dB");
+		break;
+	case Parameters::RatioOpen:
+	case Parameters::RatioClose:
 		strcpy(label, "");
 		break;
-	case Parameters::ThresholdDb:
+	case Parameters::ThresholdOpenDb:
+	case Parameters::ThresholdCloseRelativeDb:
 		strcpy(label, "dB");
 		break;
 	}

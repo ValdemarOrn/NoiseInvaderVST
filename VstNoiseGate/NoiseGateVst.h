@@ -17,8 +17,11 @@ enum class Parameters
 	ReleaseMs,
 
 	// expander settings
-	Ratio,
-	ThresholdDb,
+	SignalFloor,
+	RatioOpen,
+	RatioClose,
+	ThresholdOpenDb,
+	ThresholdCloseRelativeDb,
 	KneeDb,
 
 	// signal shaping

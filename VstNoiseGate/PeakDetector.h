@@ -32,8 +32,8 @@ private:
 	// The decay of the output value, when no peak is active to keep it level
 	float decay;
 
-	// The maximum number of peaks we could see in the hold period specified
-	int peakCount;
+	// The maximum number of samples we see in the hold period specified
+	int windowSize;
 	
 	// The previous input value. If new input value < prevInputValue, then that was a peak
 	float prevInputValue;
@@ -51,10 +51,12 @@ public:
 	PeakDetector(double fs, float decay = 0.995f, float peakHoldMillis = 10.0f)
 	{
 		this->fs = fs;
-		this->decay = decay;
-		peakCount = (int)(peakHoldMillis / 1000.0f * fs);
 
-		peakStorage = new IntFloatPair[peakCount];
+		// currently, I just use the defaults, they work very well for a guitar signal.
+		this->decay = decay;
+		windowSize = (int)(peakHoldMillis / 1000.0f * fs);
+		
+		peakStorage = new IntFloatPair[windowSize];
 
 		prevInputValue = 0.0f;
 		timeIndex = 0;
@@ -74,21 +76,22 @@ public:
 		if (val < prevInputValue) // we just saw a peak, store it
 		{
 			peakStorage[peakWriteIndex] = IntFloatPair(timeIndex, prevInputValue);
-			peakWriteIndex = (peakWriteIndex + 1) % peakCount;
+			peakWriteIndex = (peakWriteIndex + 1) % windowSize;
 		}
+		prevInputValue = val;
 
-		// find peak
+		// find largest peak within our look-back period
 		IntFloatPair maxPeak;
 		bool foundPeak = false;
 		int readIdx = peakReadIndex;
-		int minTimeIndex = timeIndex - peakCount;
+		int minTimeIndex = timeIndex - windowSize;
 		while (readIdx != peakWriteIndex)
 		{
 			auto p = peakStorage[readIdx];
 			if (p.Int < minTimeIndex)
 			{
-				// this is old data, move read header
-				peakReadIndex = (peakReadIndex + 1) % peakCount;
+				// this is old data, move read header forward
+				peakReadIndex = (peakReadIndex + 1) % windowSize;
 			}
 			else
 			{
@@ -99,25 +102,20 @@ public:
 				}
 			}
 
-			readIdx = (readIdx + 1) % peakCount;
+			readIdx = (readIdx + 1) % windowSize;
 		}
 
+		// if no peak has occurred in the time period we are looking back at, fall back to a decaying signal
 		auto fallbackValue = currentValue * decay;
 		if (fallbackValue < val)
 			fallbackValue = val;
 
 		if (foundPeak && maxPeak.Float > fallbackValue)
-		{
 			currentValue = maxPeak.Float;
-		}
 		else
-		{
 			currentValue = fallbackValue;
-		}
 
-		prevInputValue = val;
 		timeIndex++;
-
 		return currentValue;
 	}
 };

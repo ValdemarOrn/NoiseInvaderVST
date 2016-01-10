@@ -15,8 +15,6 @@ class NoiseGateKernel
 {
 private:
 
-	const float MinEnvValDb = -150.0f;
-
 	float fs;
 		
 	Biquad lowpass;
@@ -24,14 +22,14 @@ private:
 	PeakDetector detector;
 
 	// temp values
-	float envValDb1Filter;
-	float envValDb2Filter;
-	float envValDb;
+	float envelopeDbFilterTemp;
+	float envelopeDbValue;
 	float aPrevDb;
 	
 	// envelope settings - internal
 	float attackSlew;
 	float releaseSlew;
+	// These values are actually fixed, they set the parameters of the smoothing envelope filter
 	float envelopeCutoffHz;
 	float envelopeAlpha;
 
@@ -48,8 +46,11 @@ public:
 	float ReleaseMs;
 
 	// expander settings
-	float Ratio;
-	float ThresholdDb;
+	float SignalFloor;
+	float RatioOpen;
+	float RatioClose;
+	float ThresholdOpenDb;
+	float ThresholdCloseDb;
 	float KneeDb;
 
 	// signal shaping
@@ -60,24 +61,28 @@ public:
 		: detector(fs)
 	{
 		this->fs = fs;
+		SignalFloor = -150.0f;
 
-		envValDb1Filter = MinEnvValDb;
-		envValDb2Filter = MinEnvValDb;
-		envValDb = MinEnvValDb;
-		aPrevDb = MinEnvValDb;
+		// The smoothing is fixed at 100Hz cutoff
+		envelopeCutoffHz = 100.0f; 
+		envelopeAlpha = 0;
+
+		envelopeDbFilterTemp = SignalFloor;
+		envelopeDbValue = SignalFloor;
+		aPrevDb = SignalFloor;
 		attackSlew = 0;
 		releaseSlew = 0;
-		envelopeCutoffHz = 100.0f; // Adjustable?
-		envelopeAlpha = 0;
-		
+
 		InputGain = 1.0f;
 		OutputGain = 1.0f;
 
 		AttackMs = 5.f;
 		ReleaseMs = 50.f;
 
-		Ratio = 3.0f;
-		ThresholdDb = -20.f;
+		RatioOpen = 3.0f;
+		RatioClose = 3.0f;
+		ThresholdOpenDb = -20.f;
+		ThresholdCloseDb = -10.f;
 		KneeDb = 0.01;
 
 		LowpassHz = 6000.f;
@@ -124,34 +129,49 @@ public:
 			// ------ Env Shaping --------
 
 			auto peakValDb = Utils::Gain2DB(peakVal);
-			envValDb = peakValDb;
-			if (envValDb < MinEnvValDb)
-				envValDb = MinEnvValDb;
+			if (peakValDb < SignalFloor)
+				peakValDb = SignalFloor;
 
-			envValDb1Filter = envValDb1Filter * (1 - envelopeAlpha) + envValDb * envelopeAlpha;
-			envValDb2Filter = envValDb2Filter * (1 - envelopeAlpha) + envValDb1Filter * envelopeAlpha;
+			envelopeDbFilterTemp = envelopeDbFilterTemp * (1 - envelopeAlpha) + peakValDb * envelopeAlpha;
+			envelopeDbValue = envelopeDbValue * (1 - envelopeAlpha) + envelopeDbFilterTemp * envelopeAlpha;
 
-			// the assumed gain
-			auto aDb = Compress(envValDb2Filter, ThresholdDb, Ratio, KneeDb, true);
+			// The two expansion curves form upper and lower limits on the signal
+			auto aDbUpperLim = Compress(envelopeDbValue, ThresholdCloseDb, RatioClose, KneeDb, true);
+			auto aDbLowerLim = Compress(envelopeDbValue, ThresholdOpenDb, RatioOpen, KneeDb, true);
+			// If you use a higher ratio for the Close curve, then the curves can intersect. Prefer the lower of the two values
+			if (aDbLowerLim > aDbUpperLim) aDbLowerLim = aDbUpperLim;
+			// Limit the values to the signal floor
+			if (aDbUpperLim < SignalFloor) aDbUpperLim = SignalFloor;
+			if (aDbLowerLim < SignalFloor) aDbLowerLim = SignalFloor;
+			float aDb = 0.0f;
 
-			// slew limit the effective gain curve with the attack and release params
-			if (aDb < MinEnvValDb)
-				aDb = MinEnvValDb;
-
-			if (aDb > aPrevDb)
+			// compare the current gain to the upper and lower limits, and clamp the new value between those.
+			// slew limit the change in gain with the attack and release params.
+			if (aPrevDb < aDbLowerLim)
 			{
-				if (aPrevDb + attackSlew < aDb)
-					aDb = aPrevDb + attackSlew;
+				aDb = aPrevDb + attackSlew;
+				if (aDb > aDbLowerLim)
+					aDb = aDbLowerLim;
+			}
+			else if (aPrevDb > aDbUpperLim)
+			{
+				aDb = aPrevDb - releaseSlew;
+				if (aDb < aDbUpperLim)
+					aDb = aDbUpperLim;
 			}
 			else
 			{
-				if (aPrevDb - releaseSlew > aDb)
-					aDb = aPrevDb - releaseSlew;
+				// If we do not "bump into" either the upper or the lower limit, meaning we are somewhere in the
+				// middle of the histeresis region, then leave the current gain unchanged.
+				aDb = aPrevDb;
 			}
+
 			aPrevDb = aDb;
 
 			auto cValue = Utils::DB2gain(aDb);
-			auto cEnvValue = Utils::DB2gain(envValDb2Filter);
+			auto cEnvValue = Utils::DB2gain(envelopeDbValue);
+
+			// this is the most important bit. The ratio between the measured envelope curve, and our computed, desired curve, forms the desired gain
 			auto g = cValue / cEnvValue;
 
 			output[i] = input[i] * g * OutputGain;
