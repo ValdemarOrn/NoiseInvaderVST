@@ -1,7 +1,6 @@
 #include "NoiseGateVst.h"
 #include "AudioLib/Utils.h"
 #include "AudioLib/ValueTables.h"
-#include <Windows.h>
 
 using namespace AudioLib;
 
@@ -10,7 +9,6 @@ const char* DeveloperName = "Valdemar Erlingsson";
 
 AudioEffect* createEffectInstance (audioMasterCallback audioMaster)
 {
-	AllocConsole();
 	Utils::Initialize();
 	ValueTables::Init();
 	return new NoiseGateVst(audioMaster);
@@ -31,6 +29,16 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 
 	kernel = 0;
 	sampleRate = 48000;
+
+	parameters[(int)Parameters::Enabled] = 1.0;
+	parameters[(int)Parameters::AttackMs] = 0.1;
+	parameters[(int)Parameters::InputGain] = 0.5;
+	parameters[(int)Parameters::KneeDb] = 0.5;
+	parameters[(int)Parameters::OutputGain] = 0.5;
+	parameters[(int)Parameters::Ratio] = 0.4;
+	parameters[(int)Parameters::ReleaseMs] = 0.4;
+	parameters[(int)Parameters::ThresholdDb] = 0.3;
+
 	createDevice();
 }
 
@@ -54,8 +62,8 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::PowerHum:
-		kernel->HumEliminator.Mode = (int)(value * 2.999f);
+	case Parameters::Enabled:
+		kernel->Enabled = value >= 0.5;
 		break;
 	case Parameters::InputGain:
 		kernel->InputGain = Utils::DB2gain(-20 + value * 40);
@@ -69,14 +77,6 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 	case Parameters::ReleaseMs:
 		kernel->ReleaseMs = 10 + ValueTables::Get(value, ValueTables::Response2Dec) * 990;
 		break;
-		/*
-	case Parameters::HighpassHz:
-		kernel->HighpassHz = 10 + ValueTables::Get(value, ValueTables::Response2Oct) * 990;
-		break;
-	case Parameters::LowpassHz:
-		kernel->LowpassHz = 500 + ValueTables::Get(value, ValueTables::Response2Oct) * 14500;
-		break;
-		*/
 	case Parameters::KneeDb:
 		kernel->KneeDb = 0.01 + value * value * 12.0;
 		break;
@@ -88,6 +88,7 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 		break;
 	}
 
+	kernel->UpdateAll();
 	parameters[index] = value;
 }
 
@@ -100,8 +101,8 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::PowerHum:
-		strcpy(label, "Power Hum");
+	case Parameters::Enabled:
+		strcpy(label, "Enabled");
 		break;
 	case Parameters::InputGain:
 		strcpy(label, "Input Gain");
@@ -115,12 +116,6 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 	case Parameters::ReleaseMs:
 		strcpy(label, "Release");
 		break;
-	/*case Parameters::HighpassHz:
-		strcpy(label, "Highpass");
-		break;
-	case Parameters::LowpassHz:
-		strcpy(label, "Lowpass");
-		break;*/
 	case Parameters::KneeDb:
 		strcpy(label, "Knee");
 		break;
@@ -137,8 +132,8 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::PowerHum:
-		sprintf(text, kernel->HumEliminator.Mode == 0 ? "Off" : kernel->HumEliminator.Mode == 1 ? "50Hz" : "60Hz");
+	case Parameters::Enabled:
+		strcpy(text, kernel->Enabled ? "Enabled" : "Disabled");
 		break;
 	case Parameters::InputGain:
 		sprintf(text, "%.2f", Utils::Gain2DB(kernel->InputGain));
@@ -152,12 +147,6 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 	case Parameters::ReleaseMs:
 		sprintf(text, "%.1f", kernel->ReleaseMs);
 		break;
-	/*case Parameters::HighpassHz:
-		sprintf(text, "%.1f", kernel->HighpassHz);
-		break;
-	case Parameters::LowpassHz:
-		sprintf(text, "%.1f", kernel->LowpassHz);
-		break;*/
 	case Parameters::KneeDb:
 		sprintf(text, "%.1f", kernel->KneeDb);
 		break;
@@ -174,7 +163,7 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::PowerHum:
+	case Parameters::Enabled:
 		strcpy(label, "");
 		break;
 	case Parameters::InputGain:
@@ -189,12 +178,6 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 	case Parameters::ReleaseMs:
 		strcpy(label, "ms");
 		break;
-	/*case Parameters::HighpassHz:
-		strcpy(label, "Hz");
-		break;
-	case Parameters::LowpassHz:
-		strcpy(label, "Hz");
-		break;*/
 	case Parameters::KneeDb:
 		strcpy(label, "dB");
 		break;

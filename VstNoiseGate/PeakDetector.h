@@ -3,7 +3,7 @@
 class IntFloatPair
 {
 public:
-	int Int;
+	long Int;
 	float Float;
 
 	IntFloatPair()
@@ -23,17 +23,28 @@ class PeakDetector
 {
 private:
 	
+	// array of peaks and the time indices
 	IntFloatPair* peakStorage;
 
+	// Samplerate
 	float fs;
+
+	// The decay of the output value, when no peak is active to keep it level
 	float decay;
-	int PEAK_COUNT;
+
+	// The maximum number of peaks we could see in the hold period specified
+	int peakCount;
 	
-	float prevValue;
-	int timeIndex;
+	// The previous input value. If new input value < prevInputValue, then that was a peak
+	float prevInputValue;
+
+	// iterator that increments by one for every sample processed.
+	long timeIndex;
+
 	int peakReadIndex;
 	int peakWriteIndex;
 
+	// the output value of the detector
 	float currentValue;
 
 public:
@@ -41,11 +52,11 @@ public:
 	{
 		this->fs = fs;
 		this->decay = decay;
-		PEAK_COUNT = (int)(peakHoldMillis / 1000.0f * fs);
+		peakCount = (int)(peakHoldMillis / 1000.0f * fs);
 
-		peakStorage = new IntFloatPair[PEAK_COUNT];
+		peakStorage = new IntFloatPair[peakCount];
 
-		prevValue = 0.0f;
+		prevInputValue = 0.0f;
 		timeIndex = 0;
 		peakReadIndex = 0;
 		peakWriteIndex = 0;
@@ -60,24 +71,24 @@ public:
 
 	inline float ProcessPeaks(float val)
 	{
-		if (val < prevValue) // we just saw a peak, store it
+		if (val < prevInputValue) // we just saw a peak, store it
 		{
-			peakStorage[peakWriteIndex] = IntFloatPair(timeIndex, prevValue);
-			peakWriteIndex = (peakWriteIndex + 1) % PEAK_COUNT;
+			peakStorage[peakWriteIndex] = IntFloatPair(timeIndex, prevInputValue);
+			peakWriteIndex = (peakWriteIndex + 1) % peakCount;
 		}
 
 		// find peak
 		IntFloatPair maxPeak;
 		bool foundPeak = false;
 		int readIdx = peakReadIndex;
-		int minTimeIndex = timeIndex - PEAK_COUNT;
+		int minTimeIndex = timeIndex - peakCount;
 		while (readIdx != peakWriteIndex)
 		{
 			auto p = peakStorage[readIdx];
 			if (p.Int < minTimeIndex)
 			{
 				// this is old data, move read header
-				peakReadIndex = (peakReadIndex + 1) % PEAK_COUNT;
+				peakReadIndex = (peakReadIndex + 1) % peakCount;
 			}
 			else
 			{
@@ -88,7 +99,7 @@ public:
 				}
 			}
 
-			readIdx = (readIdx + 1) % PEAK_COUNT;
+			readIdx = (readIdx + 1) % peakCount;
 		}
 
 		auto fallbackValue = currentValue * decay;
@@ -104,7 +115,7 @@ public:
 			currentValue = fallbackValue;
 		}
 
-		prevValue = val;
+		prevInputValue = val;
 		timeIndex++;
 
 		return currentValue;

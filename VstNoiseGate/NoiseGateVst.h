@@ -6,7 +6,7 @@
 
 enum class Parameters
 {
-	PowerHum = 0,
+	Enabled = 0,
 
 	// Gain Settings
 	InputGain,

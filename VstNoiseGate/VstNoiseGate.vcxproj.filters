@@ -56,6 +56,9 @@
     <ClInclude Include="PeakDetector.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="AudioLib\Sse.h">
+      <Filter>AudioLib</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffect.cpp">

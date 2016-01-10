@@ -6,8 +6,8 @@
 #include "AudioLib/MathDefs.h"
 #include "AudioLib/Biquad.h"
 #include "AudioLib/Utils.h"
+#include "AudioLib/Sse.h"
 #include "PeakDetector.h"
-#include "HumEliminator.h"
 
 using namespace AudioLib;
 
@@ -37,7 +37,7 @@ private:
 
 public:
 	
-	HumEliminator HumEliminator;
+	bool Enabled;
 
 	// Gain Settings
 	float InputGain;
@@ -57,11 +57,10 @@ public:
 	float HighpassHz;
 
 	NoiseGateKernel(int fs)
-		: detector(fs), HumEliminator(fs)
+		: detector(fs)
 	{
 		this->fs = fs;
 
-		HumEliminator.Mode = 0;
 		envValDb1Filter = MinEnvValDb;
 		envValDb2Filter = MinEnvValDb;
 		envValDb = MinEnvValDb;
@@ -101,9 +100,16 @@ public:
 
 	inline void Process(float* input, float* output, int len)
 	{
-		HumEliminator.Process(input, input, len);
+		Sse::PreventDernormals();
 
-		UpdateAll();
+		if (!Enabled)
+		{
+			for (size_t i = 0; i < len; i++)
+				output[i] = input[i];
+
+			return;
+		}
+
 		float g = 1.0f;
 
 		for (size_t i = 0; i < len; i++)
@@ -118,20 +124,7 @@ public:
 			// ------ Env Shaping --------
 
 			auto peakValDb = Utils::Gain2DB(peakVal);
-
-			if (envValDb < peakValDb)
-			{
-				envValDb += attackSlew;
-				if (envValDb > peakValDb)
-					envValDb = peakValDb;
-			}
-			else
-			{
-				envValDb -= releaseSlew;
-				if (envValDb < peakValDb)
-					envValDb = peakValDb;
-			}
-
+			envValDb = peakValDb;
 			if (envValDb < MinEnvValDb)
 				envValDb = MinEnvValDb;
 
@@ -141,10 +134,10 @@ public:
 			// the assumed gain
 			auto aDb = Compress(envValDb2Filter, ThresholdDb, Ratio, KneeDb, true);
 
-			// slew limit the effective gain curve with the same attack and release params
-			// as the envelope follower
+			// slew limit the effective gain curve with the attack and release params
 			if (aDb < MinEnvValDb)
 				aDb = MinEnvValDb;
+
 			if (aDb > aPrevDb)
 			{
 				if (aPrevDb + attackSlew < aDb)
@@ -162,13 +155,8 @@ public:
 			auto g = cValue / cEnvValue;
 
 			output[i] = input[i] * g * OutputGain;
-			//output[i] = x * OutputGain;
 		}
-
-		//std::cout << "Measured: " << envelopeDbValue << ", g: " << g << "\n";
 	}
-
-private:
 
 	inline void UpdateAll()
 	{
@@ -184,6 +172,8 @@ private:
 		lowpass.Update();
 		highpass.Update();
 	}
+
+private:
 
 	// Given x, computes the compression/expansion curve according to the parameters specified
 	static float Compress(float x, float threshold, float ratio, float knee, bool expand)
