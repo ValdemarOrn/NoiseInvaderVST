@@ -86,7 +86,7 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 		kernel->KneeDb = 0.01 + value * value * 12.0;
 		break;
 	case Parameters::SignalFloor:
-		kernel->SignalFloor = -50 - value * 100;
+		kernel->SignalFloor = -50 - (1 - value) * 100;
 		break;
 	case Parameters::RatioOpen:
 		kernel->RatioOpen = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
@@ -97,9 +97,6 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 	case Parameters::ThresholdOpenDb:
 		kernel->ThresholdOpenDb = -ValueTables::Get(1 - parameters[(int)Parameters::ThresholdOpenDb], ValueTables::Response2Oct) * 80;
 		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;
-		// since we're changing more than one parameter, need to notify the host
-		setParameterAutomated((int)Parameters::ThresholdCloseRelativeDb, parameters[(int)Parameters::ThresholdCloseRelativeDb]);
-		//updateDisplay();
 		break;
 	case Parameters::ThresholdCloseRelativeDb:
 		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;		
@@ -190,7 +187,7 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 		sprintf(text, "%.1f", kernel->ThresholdOpenDb);
 		break;
 	case Parameters::ThresholdCloseRelativeDb:
-		sprintf(text, "%.1f", kernel->ThresholdCloseDb);
+		sprintf(text, "%.1f", kernel->ThresholdCloseDb - kernel->ThresholdOpenDb);
 		break;
 	}
 }
