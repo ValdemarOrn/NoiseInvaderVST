@@ -118,6 +118,7 @@ public:
 		}
 
 		float g = 1.0f;
+		float referenceValue = Utils::DB2gain(ThresholdCloseDb);
 
 		for (size_t i = 0; i < len; i++)
 		{
@@ -190,8 +191,13 @@ public:
 			auto cValue = Utils::DB2gain(aDb);
 			auto cEnvValue = Utils::DB2gain(envelopeDbValue);
 
-			// this is the most important bit. The ratio between the measured envelope curve, and our computed, desired curve, forms the desired gain
-			auto g = cValue / cEnvValue;
+			// this is the most important bit. The effective gain is computed gain is the envelope value / closeThreshold.
+			// Now, since the closeThreshold > openThreshold, the gain is too high on the attack, but I haven't been able to
+			// figure out a way to do it correctly on both attack and release. The dual theshold makes it hard to compute (impossible?)
+			// I use the closeThreshold as a substitute in both cases, as we limit the g <= 1, but using the OpenTheshold would introduce
+			// a gentle slope when the envelope is decaying between the two thresholds. The user can easily supplement for this extra gain by
+			// adjusting the attack or open threshold to get the desired sound, though.
+			auto g = cValue / referenceValue;
 			if (g > 1) g = 1;
 			output[i] = input[i] * g * OutputGain;
 		}

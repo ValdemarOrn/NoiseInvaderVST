@@ -73,7 +73,7 @@ namespace NoiseGate
             var gCurve = new double[xs.Length];
             var outputs = new double[xs.Length];
 
-			var SignalFloor = -150;
+			var SignalFloor = -113;
 			var thresholdOpen = -41;
 		    var thresholdClose = -41-6;
 		    var ratio = 20;
@@ -86,7 +86,7 @@ namespace NoiseGate
 			var alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
 
 			var attackMs = 1;
-			var releaseMs = 10;
+			var releaseMs = 130;
 			var attackSlew = (100 / fs) / (attackMs * 0.001); // 100 dB movement in a given time period
 			var releaseSlew = (100 / fs) / (releaseMs * 0.001);
 
@@ -173,7 +173,7 @@ namespace NoiseGate
 				envLin[i] = cEnvValue;
 
                 // this is the most important bit. The ratio between the measured envelope curve, and our computed, desired curve, forms the desired gain
-                var g = cValue / cEnvValue;
+                var g = cValue / Utils.DB2gain(thresholdClose);
 			    if (g > 1) g = 1;
 			    gCurve[i] = Utils.Gain2DB(g);
 
