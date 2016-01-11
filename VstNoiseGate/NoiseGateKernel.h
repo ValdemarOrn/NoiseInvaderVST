@@ -66,6 +66,8 @@ public:
 		// The smoothing is fixed at 100Hz cutoff
 		envelopeCutoffHz = 100.0f; 
 		envelopeAlpha = 0;
+		float k = 2 * M_PI * envelopeCutoffHz / fs;
+		envelopeAlpha = (k) / (k + 1);
 
 		envelopeDbFilterTemp = SignalFloor;
 		envelopeDbValue = SignalFloor;
@@ -132,6 +134,23 @@ public:
 			if (peakValDb < SignalFloor)
 				peakValDb = SignalFloor;
 
+			// dynamically tweak the smoothing cutoff based on if the env. is above or below threshold
+			// https://en.wikipedia.org/wiki/Low-pass_filter  - for alpha computation
+			if (envelopeDbValue > ThresholdOpenDb && envelopeCutoffHz != 10.0)
+			{
+				envelopeCutoffHz = 10.0;
+				
+				float k = 2 * M_PI * envelopeCutoffHz / fs;
+				envelopeAlpha = (k) / (k + 1);
+			}
+			else if (envelopeDbValue < ThresholdCloseDb && envelopeCutoffHz != 100.0)
+			{
+				envelopeCutoffHz = 100.0;
+				
+				float k = 2 * M_PI * envelopeCutoffHz / fs;
+				envelopeAlpha = (k) / (k + 1);
+			}
+
 			envelopeDbFilterTemp = envelopeDbFilterTemp * (1 - envelopeAlpha) + peakValDb * envelopeAlpha;
 			envelopeDbValue = envelopeDbValue * (1 - envelopeAlpha) + envelopeDbFilterTemp * envelopeAlpha;
 
@@ -173,7 +192,7 @@ public:
 
 			// this is the most important bit. The ratio between the measured envelope curve, and our computed, desired curve, forms the desired gain
 			auto g = cValue / cEnvValue;
-
+			if (g > 1) g = 1;
 			output[i] = input[i] * g * OutputGain;
 		}
 	}
@@ -182,11 +201,7 @@ public:
 	{
 		attackSlew = (100 / fs) / (AttackMs * 0.001); // 100 dB movement in a given time period
 		releaseSlew = (100 / fs) / (ReleaseMs * 0.001);
-
-		// https://en.wikipedia.org/wiki/Low-pass_filter
-		float k = 2 * M_PI * envelopeCutoffHz / fs;
-		envelopeAlpha = (k) / (k + 1);
-
+		
 		lowpass.Frequency = LowpassHz;
 		highpass.Frequency = HighpassHz;
 		lowpass.Update();
