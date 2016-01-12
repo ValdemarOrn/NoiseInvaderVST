@@ -89,10 +89,10 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 		kernel->SignalFloor = -50 - (1 - value) * 100;
 		break;
 	case Parameters::RatioOpen:
-		kernel->RatioOpen = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
+		kernel->RatioOpen = 1.0f + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
 		break;
 	case Parameters::RatioClose:
-		kernel->RatioClose = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
+		kernel->RatioClose = 1.0f + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
 		break;
 	case Parameters::ThresholdOpenDb:
 		kernel->ThresholdOpenDb = -ValueTables::Get(1 - parameters[(int)Parameters::ThresholdOpenDb], ValueTables::Response2Oct) * 80;

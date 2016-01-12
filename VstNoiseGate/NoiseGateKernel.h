@@ -156,8 +156,8 @@ public:
 			envelopeDbValue = envelopeDbValue * (1 - envelopeAlpha) + envelopeDbFilterTemp * envelopeAlpha;
 
 			// The two expansion curves form upper and lower limits on the signal
-			auto aDbUpperLim = Compress(envelopeDbValue, ThresholdCloseDb, RatioClose, KneeDb, true);
-			auto aDbLowerLim = Compress(envelopeDbValue, ThresholdOpenDb, RatioOpen, KneeDb, true);
+			auto aDbUpperLim = Compress(envelopeDbValue, ThresholdCloseDb, RatioClose - 0.999, KneeDb, true);  // why the ratio - 0.999 ?? Read the section below on reference value!
+			auto aDbLowerLim = Compress(envelopeDbValue, ThresholdOpenDb, RatioOpen - 0.999, KneeDb, true); // if we subtract -1 it goes all bananas
 			// If you use a higher ratio for the Close curve, then the curves can intersect. Prefer the lower of the two values
 			if (aDbLowerLim > aDbUpperLim) aDbLowerLim = aDbUpperLim;
 			// Limit the values to the signal floor
@@ -197,6 +197,8 @@ public:
 			// I use the closeThreshold as a substitute in both cases, as we limit the g <= 1, but using the OpenTheshold would introduce
 			// a gentle slope when the envelope is decaying between the two thresholds. The user can easily supplement for this extra gain by
 			// adjusting the attack or open threshold to get the desired sound, though.
+			// Note: using the static threshold as reference, rather than the envelope signal itself, means that there is always some expansion going on.
+			// But if we use 0 < ratio < 1, we can achieve expansion from unity to 2! The effective expansion is one less than the expansion curve states.
 			auto g = cValue / referenceValue;
 			if (g > 1) g = 1;
 			output[i] = input[i] * g * OutputGain;

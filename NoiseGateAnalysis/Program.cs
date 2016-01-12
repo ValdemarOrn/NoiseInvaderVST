@@ -60,12 +60,23 @@ namespace NoiseGate
 		[STAThread]
 		static void Main(string[] args)
 		{
-			var wav = AudioLib.WaveFiles.ReadWaveFile(@"C:\Users\Valdemar\Desktop\wogain2.wav")[0];
-            var xs = Enumerable.Range(0, wav.Length).Select(x => x / fs).ToArray();
-            var ys = wav.ToArray();
+			var SignalFloor = -140;
 
-            //var xs = Enumerable.Range(0, 96000).Select(x => x / fs).ToArray();
-		    //var ys = new double[xs.Length];
+			/*var pm2 = new PlotModel();
+			var px = Enumerable.Range(0, 1000).Select(x => x / 1000.0).Select(x => -150 + x * 150);
+			pm2.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Minimum = -150, Maximum = 0 });
+			pm2.AddLine(px, x => Math.Max(Compress(x, -40, 1.0, 0.001, true), SignalFloor), x => x).LineStyle = LineStyle.Dot;
+			pm2.AddLine(px, x => Math.Max(Compress(x, -60, 0.2, 0.001, true), SignalFloor), x => x);
+			pm2.AddLine(px, x => Math.Max(Compress(x, -90, 2.0, 0.001, true), SignalFloor), x => x);
+			OxyPlot.Wpf.PngExporter.Export(pm2, @"c:\chart2.png", 1600, 1000, OxyColors.White);
+			pm2.Show();*/
+
+			//var wav = AudioLib.WaveFiles.ReadWaveFile(@"C:\Users\Valdemar\Desktop\wogain2.wav")[0];
+            //var xs = Enumerable.Range(0, wav.Length).Select(x => x / fs).ToArray();
+            //var ys = wav.ToArray();
+
+            var xs = Enumerable.Range(0, 96000).Select(x => x / fs).ToArray();
+		    var ys = new double[xs.Length];
 			var peaks = new double[xs.Length];
 			var envLin = new double[xs.Length];
 			var effectiveCurveDb = new double[xs.Length];
@@ -73,10 +84,11 @@ namespace NoiseGate
             var gCurve = new double[xs.Length];
             var outputs = new double[xs.Length];
 
-			var SignalFloor = -113;
-			var thresholdOpen = -41;
-		    var thresholdClose = -41-6;
-		    var ratio = 20;
+			
+			var thresholdOpen = -3.0;
+		    var thresholdClose = -3.0;
+		    var ratioOpen = 1.0000001;
+			var ratioClose = 4;
 			PeakDetector detector = new PeakDetector(fs);
 			double envelopeDbFilterTemp = SignalFloor;
 			double envelopeDbValue = SignalFloor;
@@ -86,26 +98,26 @@ namespace NoiseGate
 			var alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
 
 			var attackMs = 1;
-			var releaseMs = 130;
+			var releaseMs = 1;
 			var attackSlew = (100 / fs) / (attackMs * 0.001); // 100 dB movement in a given time period
 			var releaseSlew = (100 / fs) / (releaseMs * 0.001);
 
-			/*for (int i = 0; i < ys.Length; i++)
+			for (int i = 0; i < ys.Length; i++)
 			{
 				var portion = i / (double)ys.Length;
 
 				var g = 1.0;
-			    g = Math.Abs(Math.Sin(portion * Math.PI * 2));
-			    if (portion > 0.5 && portion < 0.55)
-			        g = 0;
+			    //g = Math.Abs(Math.Sin(portion * Math.PI * 2));
+			    //if (portion > 0.5 && portion < 0.55)
+			    //    g = 0;
 				//g = (int)(portion * 3) % 2;
-				//g = 1-portion;
+				g = 1-portion;
 			    //g += Math.Sin(portion * 2 * Math.PI * 5) * 0.2;
-			    //if (portion > 0.8)
+			   // if (portion > 0.8)
 			    //    g = 0.0001;
 				
-                ys[i] = g * Math.Sin(i / 48.0 * 2 * Math.PI);
-			}*/
+                ys[i] = g * Math.Sin(i / 480.0 * 2 * Math.PI);
+			}
 
 			for (int i = 0; i < ys.Length; i++)
 			{
@@ -121,7 +133,7 @@ namespace NoiseGate
                 if (peakValDb < SignalFloor)
                     peakValDb = SignalFloor;
 
-                // dynamically tweak the smoothing cutoff based on if the env. is above or below threshold
+               /* // dynamically tweak the smoothing cutoff based on if the env. is above or below threshold
 			    if (envelopeDbValue > thresholdOpen && fc != 10.0)
 			    {
                     fc = 10.0;
@@ -131,16 +143,19 @@ namespace NoiseGate
                 {
                     fc = 100.0;
                     alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
-                }
+                }*/
 
 				envelopeDbFilterTemp = envelopeDbFilterTemp * (1 - alpha) + peakValDb * alpha;
 				envelopeDbValue = envelopeDbValue * (1 - alpha) + envelopeDbFilterTemp * alpha;
 				filteredEnvDb[i] = envelopeDbValue;
 
                 // The two expansion curves form upper and lower limits on the signal
-                var aDbUpperLim = Compress(envelopeDbValue, thresholdClose, ratio, 0.005, true);
-                var aDbLowerLim = Compress(envelopeDbValue, thresholdOpen, ratio, 0.005, true);
-                if (aDbUpperLim < SignalFloor) aDbUpperLim = SignalFloor;
+                var aDbUpperLim = Compress(envelopeDbValue, thresholdClose, ratioClose - 0.999, 0.005, true); // why the ratio - 0.999 ?? Read the section below on reference value!
+				var aDbLowerLim = Compress(envelopeDbValue, thresholdOpen, ratioOpen - 0.999, 0.005, true); // if we subtract -1 it goes all bananas
+				// If you use a higher ratio for the Close curve, then the curves can intersect. Prefer the lower of the two values
+				if (aDbLowerLim > aDbUpperLim) aDbLowerLim = aDbUpperLim;
+				// Limit the values to the signal floor
+				if (aDbUpperLim < SignalFloor) aDbUpperLim = SignalFloor;
                 if (aDbLowerLim < SignalFloor) aDbLowerLim = SignalFloor;
                 var aDb = 0.0;
 
@@ -172,8 +187,15 @@ namespace NoiseGate
                 effectiveCurveDb[i] = aDb;
 				envLin[i] = cEnvValue;
 
-                // this is the most important bit. The ratio between the measured envelope curve, and our computed, desired curve, forms the desired gain
-                var g = cValue / Utils.DB2gain(thresholdClose);
+				// this is the most important bit. The effective gain is computed gain is the envelope value / closeThreshold.
+				// Now, since the closeThreshold > openThreshold, the gain is too high on the attack, but I haven't been able to
+				// figure out a way to do it correctly on both attack and release. The dual theshold makes it hard to compute (impossible?)
+				// I use the closeThreshold as a substitute in both cases, as we limit the g <= 1, but using the OpenTheshold would introduce
+				// a gentle slope when the envelope is decaying between the two thresholds. The user can easily supplement for this extra gain by
+				// adjusting the attack or open threshold to get the desired sound, though.
+				// Note: using the static threshold as reference, rather than the envelope signal itself, means that there is always some expansion going on.
+				// But if we use 0 < ratio < 1, we can achieve expansion from unity to 2! The effective expansion is one less than the expansion curve states.
+				var g = cValue / Utils.DB2gain(thresholdClose);
 			    if (g > 1) g = 1;
 			    gCurve[i] = Utils.Gain2DB(g);
 
@@ -188,11 +210,25 @@ namespace NoiseGate
 			l1.Title = "Input";
 			l1.YAxisKey = "main";
 
-			pm.AddLine(peaks).Title = "Peaks";
+			/*var ll = pm.AddLine(peaks.Select(x => Utils.Gain2DB(x)));
+			ll.Title = "Peaks";
+			ll.YAxisKey = "db";*/
 			
 			var l2 = pm.AddLine(filteredEnvDb);
 			l2.Title = "Filtered Env Log";
 			l2.YAxisKey = "db";
+
+			/*var lo = pm.AddLine(filteredEnvDb.Select(x => thresholdOpen));
+			lo.LineStyle = LineStyle.Dash;
+			lo.StrokeThickness = 0.5;
+			lo.Title = "Threshold Open";
+			lo.YAxisKey = "db";
+
+			var lc = pm.AddLine(filteredEnvDb.Select(x => thresholdClose));
+			lc.LineStyle = LineStyle.Dash;
+			lc.StrokeThickness = 0.5;
+			lc.Title = "Threshold Close";
+			lc.YAxisKey = "db";*/
 
 			var l3 = pm.AddLine(effectiveCurveDb);
 			l3.Title = "Effective Curve Log";
@@ -205,7 +241,9 @@ namespace NoiseGate
             //pm.AddLine(envLin).Title = "Env Lin";
 
 			pm.AddLine(outputs).Title = "Output";
+			
 			pm.Show();
+			OxyPlot.Wpf.PngExporter.Export(pm, @"c:\chart.png", 1600, 1000, OxyColors.White);
 		}
 	}
 
