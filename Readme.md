@@ -13,7 +13,7 @@ If you get get an error while loading the plugin in your DAW, you may need to do
 
 ## How it works
 
-The manual contains an in-depth explanation of the how the algorithm works. **[Click to download the latest release, which includes the manual](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/)**.
+The manual contains an in-depth explanation of the how the algorithm works. It is included with in the plugin release zip archive, but is also **[available online](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/download/2016-01-12/Noise.Invader.Manual.pdf)**.
 
 ## Building from Source
 
