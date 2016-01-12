@@ -2,19 +2,18 @@
 
 It came to my attention that there is a serious lack of good noise gates available for free. To address this need, I decided to design this noise gate algorithm and release it as a free (as in beer and speech) VST plugin to the world. I hope you will find it as useful as I do. 
 
+If you are a developer and you find yourself in need of a decent noise gate for your product, feel free to use this algorithm, it is completely free and comes with no restrictions. 
+
 ## Download
 
-Get the latest download from the **[Release page](www.google.com)**.
+Get the latest download from the **[Release page](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/)**.
 
-## License
-
-Am am releasing the code in this repository in to the public domain. Do with it whatever you please.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+This plugin works on 32- and 64 bit Windows platforms.
+If you get get an error while loading the plugin in your DAW, you may need to download and install the latest **[Visual C++ Runtime available directly from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=48145)**. 
 
 ## How it works
 
-The manual gives an in-depth explanation of the how the algorithm works. **[You can read the manual here](www.google.com)**.
+The manual contains an in-depth explanation of the how the algorithm works. **[Click to download the latest release, which includes the manual](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/)**.
 
 ## Building from Source
 
@@ -30,4 +29,10 @@ with
 
     #define VST_EXPORT __declspec(dllexport)
 
-This will export the vstmain function so that it is available as a function in your dll file. If you don't do this change, you can also specify a list of functions to be exported in VST, but I prefer to use this way instead. 
+This will export the vstmain function so that it is available as a function in your dll file. If you don't do this change, you can also specify a list of functions to be exported in VST, but I prefer to use this way instead.
+
+## License
+
+Am am releasing the code in this repository in to the public domain. Do with it whatever you please.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
