@@ -22,6 +22,7 @@
     <ProjectGuid>{FEAC7618-D4F5-402D-B498-AB7AD1A52324}</ProjectGuid>
     <RootNamespace>VstNoiseGate</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <ProjectName>NoiseInvader</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -71,20 +72,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>C:\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x;C:\dev\vst_sdk2_4\vstsdk2.4 clean;$(IncludePath)</IncludePath>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\$(Platform)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>C:\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x;C:\dev\vst_sdk2_4\vstsdk2.4 clean;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\$(Platform)</OutDir>
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>C:\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x;C:\dev\vst_sdk2_4\vstsdk2.4 clean;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\$(Platform)</OutDir>
+    <TargetName>$(ProjectName)_x64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>C:\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x;C:\dev\vst_sdk2_4\vstsdk2.4 clean;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\$(Platform)</OutDir>
+    <TargetName>$(ProjectName)_x64</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

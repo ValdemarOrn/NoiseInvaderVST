@@ -15,3 +15,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ## How it works
 
 The manual gives an in-depth explanation of the how the algorithm works. **[You can read the manual here](www.google.com)**.
+
+## Building from Source
+
+In order to build from source you must obtain a copy of the VST SDK from Steinberg, as they do not allow the SDK to be distributed by 3rd parties. This plugin uses VST 2.4, which is included as part of the most recent (version 3) SDK.
+
+Once you've obtained the SDK, modify the include directories to point to the location of the SDK. Finally, one minor change has to be done to the vstpluginmain.cpp file.
+
+Replace the following line:
+
+    #define VST_EXPORT
+
+with
+
+    #define VST_EXPORT __declspec(dllexport)
+
+This will export the vstmain function so that it is available as a function in your dll file. If you don't do this change, you can also specify a list of functions to be exported in VST, but I prefer to use this way instead. 

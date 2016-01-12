@@ -26,6 +26,7 @@ Thumbs.db
 test-results/
 *.lib
 *.sbr
+*.pdf
 obj/
 intermediate*/
 [Rr]elease*/
@@ -38,3 +39,4 @@ Build/*
 Wavetables/*.wav
 Wavetables/*/*.wav
 Wavetables.zip
+Releases/*
