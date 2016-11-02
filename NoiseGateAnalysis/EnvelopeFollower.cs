@@ -30,7 +30,7 @@ namespace NoiseGate
 		private double hold;
 		private int lastTriggerCounter;
 		private double h1, h2, h3, h4;
-		private double holdFiltered = 0.1;
+		private double holdFiltered;
 
 		public EnvelopeFollower(double fs, double releaseMs)
 		{

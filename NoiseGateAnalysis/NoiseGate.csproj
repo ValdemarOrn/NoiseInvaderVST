@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EnvelopeFollower.cs" />
+    <Compile Include="Expander.cs" />
     <Compile Include="Indicators.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
