@@ -2,34 +2,23 @@
 #define _NoiseGateVst
 
 #include "public.sdk/source/vst2.x/audioeffectx.h"
-#include "NoiseGateKernel.h"
+#include "NoiseGateKernel2.h"
 
 enum class Parameters
 {
-	Enabled = 0,
-
 	// Gain Settings
-	InputGain,
-	OutputGain,
+	DetectorGain = 0,
 
-	// Envelope Settings
-	AttackMs,
+	// Noise Gate Settings
+	ReductionDb,
+	ThresholdDb,
+	Slope,
 	ReleaseMs,
-
-	// expander settings
-	SignalFloor,
-	RatioOpen,
-	RatioClose,
-	ThresholdOpenDb,
-	ThresholdCloseRelativeDb,
-	KneeDb,
-
-	// signal shaping
-	//LowpassHz,
-	//HighpassHz,
 
 	Count
 };
+
+using namespace NoiseInvader;
 
 class NoiseGateVst : public AudioEffectX
 {
@@ -62,7 +51,7 @@ public:
 protected:
 	float parameters[(int)Parameters::Count];
 	char programName[kVstMaxProgNameLen + 1];
-	NoiseGateKernel* kernel;
+	NoiseGateKernel2* kernel;
 };
 
 #endif

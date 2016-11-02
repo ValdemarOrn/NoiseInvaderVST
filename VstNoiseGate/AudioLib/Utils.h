@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <cmath>
+#include "MathDefs.h"
 
 namespace AudioLib
 {

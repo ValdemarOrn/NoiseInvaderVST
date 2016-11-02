@@ -74,6 +74,9 @@
     <ClInclude Include="EnvelopeFollower.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="NoiseGateKernel2.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffect.cpp">

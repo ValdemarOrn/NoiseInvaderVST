@@ -4,7 +4,7 @@
 
 using namespace AudioLib;
 
-const char* PluginName = "Noise Invader";
+const char* PluginName = "Noise Invader v2.0";
 const char* DeveloperName = "Valdemar Erlingsson";
 
 AudioEffect* createEffectInstance (audioMasterCallback audioMaster)
@@ -30,18 +30,12 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	kernel = 0;
 	sampleRate = 48000;
 
-	parameters[(int)Parameters::Enabled] = 1.0;
-	parameters[(int)Parameters::AttackMs] = 0.1;
-	parameters[(int)Parameters::InputGain] = 0.5;
-	parameters[(int)Parameters::KneeDb] = 0.5;
-	parameters[(int)Parameters::OutputGain] = 0.5;
-	parameters[(int)Parameters::SignalFloor] = 0.0;
-	parameters[(int)Parameters::RatioOpen] = 0.4;
-	parameters[(int)Parameters::RatioClose] = 0.4;
-	parameters[(int)Parameters::ReleaseMs] = 0.4;
-	parameters[(int)Parameters::ThresholdCloseRelativeDb] = 0.1;
-	parameters[(int)Parameters::ThresholdOpenDb] = 0.3;
-
+	parameters[(int)Parameters::DetectorGain] = 0.5;
+	parameters[(int)Parameters::ReductionDb] = 0.0;
+	parameters[(int)Parameters::ThresholdDb] = 0.8;
+	parameters[(int)Parameters::Slope] = 0.5;
+	parameters[(int)Parameters::ReleaseMs] = 0.3;
+	
 	createDevice();
 }
 
@@ -67,44 +61,24 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 
 	switch ((Parameters)index)
 	{
-	case Parameters::Enabled:
-		kernel->Enabled = value >= 0.5;
+	case Parameters::DetectorGain:
+		kernel->DetectorGain = Utils::DB2gain(40 * value - 20);
 		break;
-	case Parameters::InputGain:
-		kernel->InputGain = Utils::DB2gain(-20 + value * 40);
-		break;
-	case Parameters::OutputGain:
-		kernel->OutputGain = Utils::DB2gain(-20 + value * 40);
-		break;
-	case Parameters::AttackMs:
-		kernel->AttackMs = 1 + ValueTables::Get(value, ValueTables::Response2Dec) * 299;
+	case Parameters::ReductionDb:
+		kernel->ReductionDb = -30 - (1 - value) * 120;
 		break;
 	case Parameters::ReleaseMs:
 		kernel->ReleaseMs = 10 + ValueTables::Get(value, ValueTables::Response2Dec) * 990;
 		break;
-	case Parameters::KneeDb:
-		kernel->KneeDb = 0.01 + value * value * 12.0;
+	case Parameters::Slope:
+		kernel->Slope = 1.0f + ValueTables::Get(value, ValueTables::Response2Dec) * 50;
 		break;
-	case Parameters::SignalFloor:
-		kernel->SignalFloor = -50 - (1 - value) * 100;
-		break;
-	case Parameters::RatioOpen:
-		kernel->RatioOpen = 1.0f + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
-		break;
-	case Parameters::RatioClose:
-		kernel->RatioClose = 1.0f + ValueTables::Get(value, ValueTables::Response2Dec) * 19;
-		break;
-	case Parameters::ThresholdOpenDb:
-		kernel->ThresholdOpenDb = -ValueTables::Get(1 - parameters[(int)Parameters::ThresholdOpenDb], ValueTables::Response2Oct) * 80;
-		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;
-		break;
-	case Parameters::ThresholdCloseRelativeDb:
-		kernel->ThresholdCloseDb = kernel->ThresholdOpenDb - ValueTables::Get(1 - parameters[(int)Parameters::ThresholdCloseRelativeDb], ValueTables::Response2Oct) * 20;		
+	case Parameters::ThresholdDb:
+		kernel->ThresholdDb = -ValueTables::Get(1 - value, ValueTables::Response2Oct) * 80;
 		break;
 	}
 
 	kernel->UpdateAll();
-	
 }
 
 float NoiseGateVst::getParameter(VstInt32 index)
@@ -116,38 +90,20 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::Enabled:
-		strcpy(label, "Enabled");
+	case Parameters::DetectorGain:
+		strcpy(label, "Sensitivity");
 		break;
-	case Parameters::InputGain:
-		strcpy(label, "Input Gain");
-		break;
-	case Parameters::OutputGain:
-		strcpy(label, "Output Gain");
-		break;
-	case Parameters::AttackMs:
-		strcpy(label, "Attack");
+	case Parameters::ReductionDb:
+		strcpy(label, "Reduction");
 		break;
 	case Parameters::ReleaseMs:
 		strcpy(label, "Release");
 		break;
-	case Parameters::KneeDb:
-		strcpy(label, "Knee");
+	case Parameters::Slope:
+		strcpy(label, "Slope");
 		break;
-	case Parameters::SignalFloor:
-		strcpy(label, "Signal Floor");
-		break;
-	case Parameters::RatioOpen:
-		strcpy(label, "Ratio Open");
-		break;
-	case Parameters::RatioClose:
-		strcpy(label, "Ratio Close");
-		break;
-	case Parameters::ThresholdOpenDb:
-		strcpy(label, "Thresh. Open");
-		break;
-	case Parameters::ThresholdCloseRelativeDb:
-		strcpy(label, "Thresh. Close");
+	case Parameters::ThresholdDb:
+		strcpy(label, "Threshold");
 		break;
 	}
 }
@@ -156,38 +112,20 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::Enabled:
-		strcpy(text, kernel->Enabled ? "Enabled" : "Disabled");
+	case Parameters::DetectorGain:
+		sprintf(text, "%.2f", Utils::Gain2DB(kernel->DetectorGain));
 		break;
-	case Parameters::InputGain:
-		sprintf(text, "%.2f", Utils::Gain2DB(kernel->InputGain));
-		break;
-	case Parameters::OutputGain:
-		sprintf(text, "%.2f", Utils::Gain2DB(kernel->OutputGain));
-		break;
-	case Parameters::AttackMs:
-		sprintf(text, "%.1f", kernel->AttackMs);
+	case Parameters::ReductionDb:
+		sprintf(text, "%.1f", kernel->ReductionDb);
 		break;
 	case Parameters::ReleaseMs:
 		sprintf(text, "%.1f", kernel->ReleaseMs);
 		break;
-	case Parameters::KneeDb:
-		sprintf(text, "%.1f", kernel->KneeDb);
+	case Parameters::Slope:
+		sprintf(text, "%.2f", kernel->Slope);
 		break;
-	case Parameters::SignalFloor:
-		sprintf(text, "%i", (int)kernel->SignalFloor);
-		break;
-	case Parameters::RatioOpen:
-		sprintf(text, "%.1f", kernel->RatioOpen);
-		break;
-	case Parameters::RatioClose:
-		sprintf(text, "%.1f", kernel->RatioClose);
-		break;
-	case Parameters::ThresholdOpenDb:
-		sprintf(text, "%.1f", kernel->ThresholdOpenDb);
-		break;
-	case Parameters::ThresholdCloseRelativeDb:
-		sprintf(text, "%.1f", kernel->ThresholdCloseDb - kernel->ThresholdOpenDb);
+	case Parameters::ThresholdDb:
+		sprintf(text, "%.1f", kernel->ThresholdDb);
 		break;
 	}
 }
@@ -196,33 +134,19 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
-	case Parameters::Enabled:
-		strcpy(label, "");
-		break;
-	case Parameters::InputGain:
+	case Parameters::DetectorGain:
 		strcpy(label, "dB");
 		break;
-	case Parameters::OutputGain:
+	case Parameters::ReductionDb:
 		strcpy(label, "dB");
-		break;
-	case Parameters::AttackMs:
-		strcpy(label, "ms");
 		break;
 	case Parameters::ReleaseMs:
 		strcpy(label, "ms");
 		break;
-	case Parameters::KneeDb:
-		strcpy(label, "dB");
-		break;
-	case Parameters::SignalFloor:
-		strcpy(label, "dB");
-		break;
-	case Parameters::RatioOpen:
-	case Parameters::RatioClose:
+	case Parameters::Slope:
 		strcpy(label, "");
 		break;
-	case Parameters::ThresholdOpenDb:
-	case Parameters::ThresholdCloseRelativeDb:
+	case Parameters::ThresholdDb:
 		strcpy(label, "dB");
 		break;
 	}
@@ -248,7 +172,7 @@ bool NoiseGateVst::getVendorString(char* text)
 
 VstInt32 NoiseGateVst::getVendorVersion()
 { 
-	return 1000; 
+	return 2000; 
 }
 
 void NoiseGateVst::processReplacing(float** inputs, float** outputs, VstInt32 sampleFrames)
@@ -256,7 +180,7 @@ void NoiseGateVst::processReplacing(float** inputs, float** outputs, VstInt32 sa
     float* in  = inputs[0];
     float* out = outputs[0];
     
-	kernel->Process(in, out, sampleFrames);
+	kernel->Process(in, in, out, sampleFrames);
 }
 
 void NoiseGateVst::setSampleRate(float sampleRate)
@@ -268,9 +192,7 @@ void NoiseGateVst::setSampleRate(float sampleRate)
 void NoiseGateVst::createDevice()
 {
 	delete kernel;
-	kernel = new NoiseGateKernel(sampleRate);
-	kernel->LowpassHz = 4000.0f;
-	kernel->HighpassHz = 60.0f;
+	kernel = new NoiseGateKernel2(sampleRate);
 
 	// re-apply parameters
 	for (size_t i = 0; i < (int)Parameters::Count; i++)

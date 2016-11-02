@@ -22,7 +22,7 @@
     <ProjectGuid>{FEAC7618-D4F5-402D-B498-AB7AD1A52324}</ProjectGuid>
     <RootNamespace>VstNoiseGate</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
-    <ProjectName>NoiseInvader</ProjectName>
+    <ProjectName>NoiseInvader2</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -163,6 +163,7 @@
     <ClInclude Include="EnvelopeFollower.h" />
     <ClInclude Include="Expander.h" />
     <ClInclude Include="Indicators.h" />
+    <ClInclude Include="NoiseGateKernel2.h" />
     <ClInclude Include="NoiseGateVst.h" />
     <ClInclude Include="PeakDetector.h" />
   </ItemGroup>
