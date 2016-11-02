@@ -6,6 +6,7 @@
 #include "AudioLib/Sse.h"
 #include "Expander.h"
 #include "EnvelopeFollower.h"
+#include "SlewLimiter.h"
 
 using namespace AudioLib;
 
@@ -19,7 +20,8 @@ namespace NoiseInvader
 
 		EnvelopeFollower envelopeFollower;
 		Expander expander;
-			
+		SlewLimiter slewLimiter;
+
 	public:
 
 		// Gain Settings
@@ -34,6 +36,7 @@ namespace NoiseInvader
 		NoiseGateKernel2(int fs)
 			: envelopeFollower(fs, 100)
 			, expander()
+			, slewLimiter(fs)
 		{
 			this->fs = fs;
 			
@@ -54,6 +57,7 @@ namespace NoiseInvader
 		{
 			expander.Update(ThresholdDb, ReductionDb, Slope);
 			envelopeFollower.SetRelease(ReleaseMs);
+			slewLimiter.UpdateDb60(2.0, ReleaseMs);
 		}
 
 		inline void Process(float* input, float* detectorInput, float* output, int len)
@@ -67,7 +71,10 @@ namespace NoiseInvader
 				auto env = envelopeFollower.GetOutput();
 
 				expander.Expand(Utils::Gain2DB(env));
-				auto gain = expander.GetOutput();
+				auto gainDb = expander.GetOutput();
+				
+				gainDb = slewLimiter.Process(gainDb);
+				auto gain = Utils::DB2gain(gainDb);
 
 				output[i] = input[i] * gain;
 			}

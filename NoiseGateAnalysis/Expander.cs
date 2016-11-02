@@ -10,13 +10,13 @@ namespace NoiseGate
 	{
 		private double prevInDb = -150.0;
 		private double outputDb = -150.0;
-		private double gain = 1.0;
+		private double gainDb = 0.0;
 
 		private double reductionDb;
 		private double upperSlope;
 		private double lowerSlope;
 		private double thresholdDb;
-
+		
 		public Expander()
 		{
 			Update(-20, -100, 2.0);
@@ -32,7 +32,7 @@ namespace NoiseGate
 
 		public double GetOutput()
 		{
-			return gain;
+			return gainDb;
 		}
 
 		public void Expand(double dbVal)
@@ -41,8 +41,8 @@ namespace NoiseGate
 				dbVal = reductionDb;
 
 			// 1. The two expansion curve form the upper and lower boundary of what the permitted "desired dB" value will be
-			var upperDb = Compress(dbVal, thresholdDb, upperSlope, 0, true);
-			var lowerDb = Compress(dbVal, thresholdDb + 6, lowerSlope, 0, true);
+			var upperDb = Compress(dbVal, thresholdDb, upperSlope, 4, true);
+			var lowerDb = Compress(dbVal, thresholdDb + 6, lowerSlope, 4, true);
 
 			// 2. The status quo, if neither curve is "hit", is to increase or reduce the desired dB by the 
 			// change in input dB. This change is applied to whatever the current output dB currently is.
@@ -67,7 +67,7 @@ namespace NoiseGate
 			if (gainDiff < reductionDb)
 				gainDiff = reductionDb;
 
-			gain = Utils.Db2Gain(gainDiff);
+			gainDb = gainDiff;
 		}
 
 		/// <summary>

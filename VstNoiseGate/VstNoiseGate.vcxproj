@@ -166,6 +166,7 @@
     <ClInclude Include="NoiseGateKernel2.h" />
     <ClInclude Include="NoiseGateVst.h" />
     <ClInclude Include="PeakDetector.h" />
+    <ClInclude Include="SlewLimiter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffect.cpp" />

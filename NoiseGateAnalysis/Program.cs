@@ -14,10 +14,10 @@ namespace NoiseGate
 {
 	class Program
 	{
-		public static double ReductionDb = -66.2;
-		public static double ThresholdDb = -65.5;
+		public static double ReductionDb = -50;
+		public static double ThresholdDb = -25;
 		public static double UpperSlope = 30;
-		public static double ReleaseMs = 301;
+		public static double ReleaseMs = 80;
 
 		private static double fs = 48000.0;
 		
@@ -38,6 +38,9 @@ namespace NoiseGate
 			
 			var follower = new EnvelopeFollower(48000, 20);
 			var expander = new Expander();
+			var slewLimiter = new SlewLimiter(48000);
+			follower.SetRelease(ReleaseMs);
+			slewLimiter.UpdateDb60(2.0, ReleaseMs);
 			expander.Update(ThresholdDb, ReductionDb, UpperSlope);
 			var signalValues = new List<double>();
 			var followerValues = new List<double>();
@@ -48,22 +51,17 @@ namespace NoiseGate
 			double decay = 1.0;
 			var sig = AudioLib.WaveFiles.ReadWaveFile(@"C:\Users\Valdemar\Desktop\NoiseGateTest.wav");
 
-			for (int i = 0; i < sig[0].Length; i++)
+			for (int i = 0; i < 20000; i++)
 			{
-			/*	var x = (Math.Sin(i / fs * 2 * Math.PI * 300) + random() * 0.4) *decay;
+				var x = (Math.Sin(i / fs * 2 * Math.PI * 300) + random() * 0.4) *decay;
 				decay *= 0.9998;
 				if (i < 1000)
 					x = random() * 0.001;
 				else if (i > 12000)
 				{
 					x = random() * 0.001;
-				}*/
-				var x = sig[0][i];
-
-				if (i >= 119062)
-				{
-					
 				}
+				//var x = sig[0][i];
 
 				signalValues.Add(x);
 				follower.ProcessEnvelope(x);
@@ -71,7 +69,10 @@ namespace NoiseGate
 				followerValues.Add(env);
 
 				expander.Expand(Utils.Gain2Db(env));
-				gainValues.Add(expander.GetOutput());
+				var gainDb = expander.GetOutput();
+				gainDb = slewLimiter.Process(gainDb);
+				var gain = Utils.Db2Gain(gainDb);
+                gainValues.Add(gain);
 			}
 
 			var signalLine = pm.AddLine(signalValues);

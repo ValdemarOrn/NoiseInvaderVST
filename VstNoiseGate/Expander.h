@@ -10,7 +10,7 @@ namespace NoiseInvader
 
 		double prevInDb = -150.0;
 		double outputDb = -150.0;
-		double gain = 1.0;
+		double gainDb = 0.0;
 
 		double reductionDb;
 		double upperSlope;
@@ -38,7 +38,7 @@ namespace NoiseInvader
 
 		inline double GetOutput()
 		{
-			return gain;
+			return gainDb;
 		}
 
 		void Expand(double dbVal)
@@ -47,8 +47,8 @@ namespace NoiseInvader
 				dbVal = reductionDb;
 
 			// 1. The two expansion curve form the upper and lower boundary of what the permitted "desired dB" value will be
-			auto upperDb = Compress(dbVal, thresholdDb, upperSlope, 0, true);
-			auto lowerDb = Compress(dbVal, thresholdDb + 6, lowerSlope, 0, true);
+			auto upperDb = Compress(dbVal, thresholdDb, upperSlope, 4, true);
+			auto lowerDb = Compress(dbVal, thresholdDb + 6, lowerSlope, 4, true);
 
 			// 2. The status quo, if neither curve is "hit", is to increase or reduce the desired dB by the 
 			// change in input dB. This change is applied to whatever the current output dB currently is.
@@ -73,7 +73,7 @@ namespace NoiseInvader
 			if (gainDiff < reductionDb)
 				gainDiff = reductionDb;
 
-			gain = AudioLib::Utils::DB2gain(gainDiff);
+			gainDb = gainDiff;
 		}
 
 	private:
