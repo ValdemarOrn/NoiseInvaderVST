@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using AudioLib;
 using AudioLib.Modules;
+using AudioLib.TF;
 using LowProfile.Visuals;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -13,307 +14,300 @@ namespace NoiseGate
 {
 	class Program
 	{
-		static double Compress(double x, double threshold, double ratio, double knee, bool expand)
+		class Sma
 		{
-			// the assumed gain
-			var output = x;
-			var kneeLow = threshold - knee;
-			var kneeHigh = threshold + knee;
+			private Queue<double> queue;
+			private double sum;
+			private double dbDecayPerSample;
 
-			if (x <= kneeLow)
+			public double DbDecayPerSample { get { return dbDecayPerSample; } }
+
+			public Sma(int samples)
 			{
-				output = x;
-			}
-			else if (x >= kneeHigh)
-			{
-				var diff = x - threshold;
-				var a = threshold + diff / ratio;
-				output = a;
-			}
-			else // in knee, below threshold
-			{
-				// position on the interpolating line between the two parts of the compression curve
-				var positionOnLine = (x - kneeLow) / (kneeHigh - kneeLow);
-				var kDiff = knee * positionOnLine;
-				var xa = kneeLow + kDiff;
-                var ya = xa;
-                var yb = threshold + kDiff / ratio;
-				var slope = (yb - ya) / (knee);
-				output = xa + slope * positionOnLine * knee;
+				this.queue = new Queue<double>();
+				for (int i = 0; i < samples; i++)
+				{
+					queue.Enqueue(0.0);
+				}
 			}
 
-			// if doing expansion, adjust the slopes so that instead of compressing, the curve expands
-			if (expand)
+			public double Update(double sample)
 			{
-				// to expand, we multiple the output by the amount of the rate. this way, the upper portion of the curve has slope 1.
-				// we then add a y-offset to reset the threshold back to the original value
-				var modifiedThrehold = threshold * ratio;
-				var yOffset = modifiedThrehold - threshold;
-				output = output * ratio - yOffset;
+				var takeAway = queue.Dequeue();
+				queue.Enqueue(sample);
+				sum -= takeAway;
+				sum += sample;
+
+
+				var sampleDb = Gain2Db(sample);
+				var takeAwayDb = Gain2Db(takeAway);
+				if (sampleDb < -150)
+					sampleDb = -150;
+				if (takeAwayDb < -150)
+					takeAwayDb = -150;
+				dbDecayPerSample = (sampleDb - takeAwayDb) / queue.Count;
+				
+                return sum / queue.Count;
 			}
+		}
+
+		class Ema
+		{
+			private double value;
+			private double alpha;
+
+			public Ema(double alpha)
+			{
+				this.alpha = alpha;
+			}
+
+			public double Update(double sample)
+			{
+				value = sample * alpha + value * (1 - alpha);
+				return value;
+			}
+		}
+
+		class EmaLatch
+		{
+			private double value;
+			private double alpha;
+			private double latch;
+			private double currentValue;
+
+			public EmaLatch(double alpha, double latch)
+			{
+				this.alpha = alpha;
+				this.latch = latch;
+			}
+
+			public double Update(bool input)
+			{
+				var sample = input ? 1.0 : -1.0;
+				value = sample * alpha + value * (1 - alpha);
+
+				if (value > latch)
+					currentValue = 1.0;
+				if (value < -latch)
+					currentValue = -1.0;
+
+				return currentValue;
+			}
+		}
+
+		public static double ReductionDb = -100.0;
+		public static double ThresholdDb = -20;
+		public static double UpperSlope = 1.5;
+		public static double LowerSlope = 9.0;
+		public static double ReleaseMs = 20;
+		public static double Volume = 1.0;
+
+		private static double fs = 48000.0;
+		private static double ts = 1.0 / fs;
+
+		//private static double lpFc = 600.0;
+		//private static double lpAlpha = (2 * Math.PI * ts * lpFc) / (2 * Math.PI * ts * lpFc + 1);
+		private static Butterworth inputFilter = new Butterworth(fs);
+		
+		private static double emaFc = 200.0;
+		private static double emaAlpha = (2 * Math.PI * ts * emaFc) / (2 * Math.PI * ts * emaFc + 1);
+
+		private static double slowDbDecayPerSample = -60 / (3000 / 1000.0 * fs);
+		private static double slowDecay = Db2Gain(slowDbDecayPerSample);
+
+		private static double dbDecayPerSample = -60 / (ReleaseMs / 1000.0 * fs);
+		private static double fastDecay = Db2Gain(dbDecayPerSample);
+
+		private static double holdFc = 200.0;
+		private static double holdAlpha = (2 * Math.PI * ts * holdFc) / (2 * Math.PI * ts * holdFc + 1);
+		//private static Butterworth holdFilter = new Butterworth(fs);
+
+		private static Sma sma = new Sma((int)(fs * 0.01));
+		private static Ema ema = new Ema(emaAlpha);
+		private static EmaLatch movementLatch = new EmaLatch(0.005, 0.2);
+
+		public static double Db2Gain(double input)
+		{
+			return (double)Math.Pow(10, input / 20);
+		}
+
+		public static double Gain2Db(double input)
+		{
+			return (double)(20 * Math.Log10(input));
+		}
+
+		public double Compress(double valDb, double slope)
+		{
+			if (valDb > ThresholdDb)
+				return valDb;
+
+			var output = valDb * slope - ThresholdDb * (slope - 1);
+			if (output < ReductionDb)
+				return ReductionDb;
 
 			return output;
 		}
 
-		static double fs = 48000.0;
+		private double lpValue;
+		private double emaValue, smaValue, movementValue;
+		private double combinedFiltered = 0.0;
+		private int lastTriggerCounter = 0;
+		private double hold = 0.0;
+		private double h1, h2, h3, h4;
+		private double holdFiltered = 0.1;
+		private double decay = 0.9999;
+
+		private void ProcessEnvelope(double val)
+		{
+			// 1. Rectify the input signal
+			val = Math.Abs(val);
+
+			// 2. Band pass filter to ~  100hz - 2Khz
+			//lpValue = lpAlpha * val + (1 - lpAlpha) * lpValue;
+			lpValue = inputFilter.Process(val);
+			//hpSignal = hipassAlpha * lpSignal + (1 - hipassAlpha) * hpSignal
+
+			// rectify the lpValue again, because the resonance in the filter can cause a tiny bit of ringing and cause the values to go negative again
+			lpValue = Math.Abs(lpValue);
+
+			var mainInput = lpValue;
+			
+			// 3. Compute the EMA and SMA of the band-filtered signal. Also compute the per-sample dB decay baed on the SMA
+			emaValue = ema.Update(mainInput);
+			smaValue = sma.Update(mainInput);
+
+			// 4. use a latching low-pass classifier to determine if signal strength is generally increasing or decreasing.
+			// This removes spike from the signal where the SMA may move in the opposite direction for a short period
+			movementValue = movementLatch.Update(sma.DbDecayPerSample > 0);
+
+			// 5. If the movement is going up, prefer the faster moving EMA signal if it's above the SMA
+			// If the movement is going down, prefer the faster moving EMA signal if it's below the SMA
+			// otherwise, use SMA
+            if (movementValue > 0) // going up
+				combinedFiltered = emaValue > smaValue ? emaValue : smaValue;
+			else // going down
+				combinedFiltered = emaValue < smaValue ? emaValue : smaValue;
+
+			// 6. use a hold mechanism to store the peak
+			if (combinedFiltered > hold)
+			{
+				hold = combinedFiltered;
+				lastTriggerCounter = 0;
+			}
+
+			// 7. Choosing the decay speed
+			// Under normal conditions, use the decay from the SMA, scaled by a fudge factor to make it slightly faster decaying.
+			// The reason for this is so that we gently bump into the peaks of the signal once in a while.
+			// If the hold mechanism hasn't been triggered for a specific timeout, then the current hold value is too high, and we need to rapidly decay downwards.
+			// Use the fastDecay (based on the user- specified release value) as a slew limited value
+			if (lastTriggerCounter > fs * 0.01)
+				decay = fastDecay;
+			else
+				decay = Db2Gain(sma.DbDecayPerSample * 1.2); // 1.2 is fudge factor to make the follower decay slightly faster than actual signal, so we gently bump into the peaks
+
+			// 7.5 Limit the decay speed in the general range of slowDecay...fastDecay, the slow decay is currently a fixed 3 seconds to -60dB value
+			if (decay > slowDecay)
+				decay = slowDecay;
+			if (decay < fastDecay)
+				decay = fastDecay;
+
+			hold = hold * decay;
+
+			// 8. Filter the resulting hold signal to retrieve a smooth envelope.
+			// Currently using 4x 1 pole lowpass, should replace with a proper 4th order butterworth
+			h1 = holdAlpha * hold + (1 - holdAlpha) * h1;
+			h2 = holdAlpha * h1 + (1 - holdAlpha) * h2;
+			h3 = holdAlpha * h2 + (1 - holdAlpha) * h3;
+			h4 = holdAlpha * h3 + (1 - holdAlpha) * h4;
+
+			holdFiltered = h4;
+			//holdFiltered = holdFilter.Process(hold);
+			lastTriggerCounter++;
+		}
+
+		public void Run()
+		{
+			inputFilter.Parameters[Butterworth.P_ORDER] = 6;
+			inputFilter.Parameters[Butterworth.P_CUTOFF_HZ] = 1800;
+			inputFilter.Update();
+
+			//holdFilter.Parameters[Butterworth.P_ORDER] = 2;
+			//holdFilter.Parameters[Butterworth.P_CUTOFF_HZ] = 100;
+			//holdFilter.Update();
+			
+			/*var pm = new PlotModel();
+			var xs = Enumerable.Range(0, 1000).Select(x => x / 1000.0).Select(x => -100 + x * 100).ToArray();
+			var ys1 = xs.Select(x => Compress(x, UpperSlope)).ToArray();
+			var ys2 = xs.Select(x => Compress(x, LowerSlope)).ToArray();
+
+			pm.AddLine(xs, ys1);
+			pm.AddLine(xs, ys2);
+			pm.Show();*/
+
+			var pm = new PlotModel();
+			var signalValues = new List<double>();
+			var emaValues = new List<double>();
+			var smaValues = new List<double>();
+			var movementValues = new List<double>();
+			var combinedFilteredValues = new List<double>();
+
+			var holdSignalValues = new List<double>();
+			var filteredHoldSignalValues = new List<double>();
+
+			var followerValues = new List<double>();
+
+			var follower = new EnvelopeFollower(48000, 100);
+
+			var rand = new Random();
+			Func<double> random = () => 2 * rand.NextDouble() - 1;
+			double decay = 1.0;
+			for (int i = 0; i < 20000; i++)
+			{
+				var x = (Math.Sin(i / fs * 2 * Math.PI * 300) + random() * 0.4) * decay;
+				decay *= 0.9998;
+				if (i < 1000)
+					x = random() * 0.001;
+				else if (i > 12000)
+				{
+					x = random() * 0.001;
+				}
+				else
+				{
+					
+				}
+
+				follower.ProcessEnvelope(x);
+				followerValues.Add(follower.GetOutput());
+
+				ProcessEnvelope(x);
+
+				signalValues.Add(x);
+				emaValues.Add(emaValue);
+				smaValues.Add(smaValue);
+				movementValues.Add(movementValue);
+				combinedFilteredValues.Add(combinedFiltered);
+				holdSignalValues.Add(hold);
+				filteredHoldSignalValues.Add(holdFiltered);
+
+			}
+
+			//pm.AddLine(signalValues).Title = "Signal";
+			//pm.AddLine(emaValues.Select(Gain2Db)).Title = "emaValues";
+			//pm.AddLine(smaValues.Select(Gain2Db)).Title = "smaValues";
+			//pm.AddLine(movementValues.Select(x => x > 0 ? 1.0 : 0.0)).Title = "movementValues";
+			//pm.AddLine(combinedFilteredValues.Select(Gain2Db)).Title = "Combined Filtered";
+			//pm.AddLine(holdSignalValues.Select(Gain2Db)).Title = "Hold";
+			pm.AddLine(filteredHoldSignalValues.Select(Gain2Db)).Title = "Filtered Hold";
+			pm.AddLine(followerValues.Select(Gain2Db)).Title = "followerValues";
+
+			pm.Show();
+		}
 
 		[STAThread]
 		static void Main(string[] args)
 		{
-			var SignalFloor = -140;
-
-			/*var pm2 = new PlotModel();
-			var px = Enumerable.Range(0, 1000).Select(x => x / 1000.0).Select(x => -150 + x * 150);
-			pm2.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Minimum = -150, Maximum = 0 });
-			pm2.AddLine(px, x => Math.Max(Compress(x, -40, 1.0, 0.001, true), SignalFloor), x => x).LineStyle = LineStyle.Dot;
-			pm2.AddLine(px, x => Math.Max(Compress(x, -60, 0.2, 0.001, true), SignalFloor), x => x);
-			pm2.AddLine(px, x => Math.Max(Compress(x, -90, 2.0, 0.001, true), SignalFloor), x => x);
-			OxyPlot.Wpf.PngExporter.Export(pm2, @"c:\chart2.png", 1600, 1000, OxyColors.White);
-			pm2.Show();*/
-
-			//var wav = AudioLib.WaveFiles.ReadWaveFile(@"C:\Users\Valdemar\Desktop\wogain2.wav")[0];
-            //var xs = Enumerable.Range(0, wav.Length).Select(x => x / fs).ToArray();
-            //var ys = wav.ToArray();
-
-            var xs = Enumerable.Range(0, 96000).Select(x => x / fs).ToArray();
-		    var ys = new double[xs.Length];
-			var peaks = new double[xs.Length];
-			var envLin = new double[xs.Length];
-			var effectiveCurveDb = new double[xs.Length];
-			var filteredEnvDb = new double[xs.Length];
-            var gCurve = new double[xs.Length];
-            var outputs = new double[xs.Length];
-
-			
-			var thresholdOpen = -3.0;
-		    var thresholdClose = -3.0;
-		    var ratioOpen = 1.0000001;
-			var ratioClose = 4;
-			PeakDetector detector = new PeakDetector(fs);
-			double envelopeDbFilterTemp = SignalFloor;
-			double envelopeDbValue = SignalFloor;
-		    double aPrevDb = SignalFloor;
-
-            var fc = 100.0;
-			var alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
-
-			var attackMs = 1;
-			var releaseMs = 1;
-			var attackSlew = (100 / fs) / (attackMs * 0.001); // 100 dB movement in a given time period
-			var releaseSlew = (100 / fs) / (releaseMs * 0.001);
-
-			for (int i = 0; i < ys.Length; i++)
-			{
-				var portion = i / (double)ys.Length;
-
-				var g = 1.0;
-			    //g = Math.Abs(Math.Sin(portion * Math.PI * 2));
-			    //if (portion > 0.5 && portion < 0.55)
-			    //    g = 0;
-				//g = (int)(portion * 3) % 2;
-				g = 1-portion;
-			    //g += Math.Sin(portion * 2 * Math.PI * 5) * 0.2;
-			   // if (portion > 0.8)
-			    //    g = 0.0001;
-				
-                ys[i] = g * Math.Sin(i / 480.0 * 2 * Math.PI);
-			}
-
-			for (int i = 0; i < ys.Length; i++)
-			{
-				var val = Math.Abs(ys[i]);
-
-				// ------ Peak tracking --------
-				var peakVal = detector.ProcessPeaks(val);
-				peaks[i] = peakVal;
-
-				// ------ Env Shaping --------
-
-				var peakValDb = Utils.Gain2DB(peakVal);
-                if (peakValDb < SignalFloor)
-                    peakValDb = SignalFloor;
-
-               /* // dynamically tweak the smoothing cutoff based on if the env. is above or below threshold
-			    if (envelopeDbValue > thresholdOpen && fc != 10.0)
-			    {
-                    fc = 10.0;
-                    alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
-                }
-                else if (envelopeDbValue < thresholdClose && fc != 100.0)
-                {
-                    fc = 100.0;
-                    alpha = (2 * Math.PI * fc / fs) / (2 * Math.PI * fc / fs + 1);
-                }*/
-
-				envelopeDbFilterTemp = envelopeDbFilterTemp * (1 - alpha) + peakValDb * alpha;
-				envelopeDbValue = envelopeDbValue * (1 - alpha) + envelopeDbFilterTemp * alpha;
-				filteredEnvDb[i] = envelopeDbValue;
-
-                // The two expansion curves form upper and lower limits on the signal
-                var aDbUpperLim = Compress(envelopeDbValue, thresholdClose, ratioClose - 0.999, 0.005, true); // why the ratio - 0.999 ?? Read the section below on reference value!
-				var aDbLowerLim = Compress(envelopeDbValue, thresholdOpen, ratioOpen - 0.999, 0.005, true); // if we subtract -1 it goes all bananas
-				// If you use a higher ratio for the Close curve, then the curves can intersect. Prefer the lower of the two values
-				if (aDbLowerLim > aDbUpperLim) aDbLowerLim = aDbUpperLim;
-				// Limit the values to the signal floor
-				if (aDbUpperLim < SignalFloor) aDbUpperLim = SignalFloor;
-                if (aDbLowerLim < SignalFloor) aDbLowerLim = SignalFloor;
-                var aDb = 0.0;
-
-                // compare the current gain to the upper and lower limits, and clamp the new value between those.
-                // slew limit the change in gain with the attack and release params.
-                if (aPrevDb < aDbLowerLim)
-			    {
-			        aDb = aPrevDb + attackSlew;
-                    if (aDb > aDbLowerLim)
-                        aDb = aDbLowerLim;
-			    }
-			    else if (aPrevDb > aDbUpperLim)
-			    {
-			        aDb = aPrevDb - releaseSlew;
-			        if (aDb < aDbUpperLim)
-			            aDb = aDbUpperLim;
-			    }
-			    else
-			    {
-                    // If we do not "bump into" either the upper or the lower limit, meaning we are somewhere in the
-                    // middle of the histeresis region, then leave the current gain unchanged.
-                    aDb = aPrevDb;
-			    }
-
-			    aPrevDb = aDb;
-
-                var cValue = Utils.DB2gain(aDb);
-				var cEnvValue = Utils.DB2gain(envelopeDbValue);
-                effectiveCurveDb[i] = aDb;
-				envLin[i] = cEnvValue;
-
-				// this is the most important bit. The effective gain is computed gain is the envelope value / closeThreshold.
-				// Now, since the closeThreshold > openThreshold, the gain is too high on the attack, but I haven't been able to
-				// figure out a way to do it correctly on both attack and release. The dual theshold makes it hard to compute (impossible?)
-				// I use the closeThreshold as a substitute in both cases, as we limit the g <= 1, but using the OpenTheshold would introduce
-				// a gentle slope when the envelope is decaying between the two thresholds. The user can easily supplement for this extra gain by
-				// adjusting the attack or open threshold to get the desired sound, though.
-				// Note: using the static threshold as reference, rather than the envelope signal itself, means that there is always some expansion going on.
-				// But if we use 0 < ratio < 1, we can achieve expansion from unity to 2! The effective expansion is one less than the expansion curve states.
-				var g = cValue / Utils.DB2gain(thresholdClose);
-			    if (g > 1) g = 1;
-			    gCurve[i] = Utils.Gain2DB(g);
-
-                outputs[i] = ys[i] * g;
-			}
-
-			var pm = new PlotModel();
-			pm.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Key = "main" });
-			pm.Axes.Add(new LinearAxis { Position = AxisPosition.Right, Key = "db" });
-
-			var l1 = pm.AddLine(ys);
-			l1.Title = "Input";
-			l1.YAxisKey = "main";
-
-			/*var ll = pm.AddLine(peaks.Select(x => Utils.Gain2DB(x)));
-			ll.Title = "Peaks";
-			ll.YAxisKey = "db";*/
-			
-			var l2 = pm.AddLine(filteredEnvDb);
-			l2.Title = "Filtered Env Log";
-			l2.YAxisKey = "db";
-
-			/*var lo = pm.AddLine(filteredEnvDb.Select(x => thresholdOpen));
-			lo.LineStyle = LineStyle.Dash;
-			lo.StrokeThickness = 0.5;
-			lo.Title = "Threshold Open";
-			lo.YAxisKey = "db";
-
-			var lc = pm.AddLine(filteredEnvDb.Select(x => thresholdClose));
-			lc.LineStyle = LineStyle.Dash;
-			lc.StrokeThickness = 0.5;
-			lc.Title = "Threshold Close";
-			lc.YAxisKey = "db";*/
-
-			var l3 = pm.AddLine(effectiveCurveDb);
-			l3.Title = "Effective Curve Log";
-			l3.YAxisKey = "db";
-
-            var l4 = pm.AddLine(gCurve);
-            l4.Title = "G Curve";
-            l4.YAxisKey = "db";
-
-            //pm.AddLine(envLin).Title = "Env Lin";
-
-			pm.AddLine(outputs).Title = "Output";
-			
-			pm.Show();
-			OxyPlot.Wpf.PngExporter.Export(pm, @"c:\chart.png", 1600, 1000, OxyColors.White);
-		}
-	}
-
-	class PeakDetector
-	{
-		private double fs;
-
-		private double decay = 0.995;
-		private int PEAK_COUNT;
-		private Tuple<int, double>[] peakStorage;
-		private double prevValue;
-		private int timeIndex;
-		private int peakReadIndex;
-		private int peakWriteIndex;
-
-		private double currentValue;
-
-		public PeakDetector(double fs)
-		{
-			this.fs = fs;
-			PEAK_COUNT = (int)(10.0 / 1000 * fs);
-			peakStorage = new Tuple<int, double>[PEAK_COUNT];
+			new Program().Run();
 		}
 
-		public double ProcessPeaks(double val)
-		{
-			if (val < prevValue) // we just saw a peak, store it
-			{
-				peakStorage[peakWriteIndex] = Tuple.Create(timeIndex, prevValue);
-				peakWriteIndex = (peakWriteIndex + 1) % PEAK_COUNT;
-			}
-
-			// find peak
-			Tuple<int, double> maxPeak = null;
-			int readIdx = peakReadIndex;
-			int minTimeIndex = timeIndex - PEAK_COUNT;
-			while (readIdx != peakWriteIndex)
-			{
-				var p = peakStorage[readIdx];
-				if (p.Item1 < minTimeIndex)
-				{
-					// this is old data, move read header
-					peakReadIndex = (peakReadIndex + 1) % PEAK_COUNT;
-				}
-				else
-				{
-					if (maxPeak == null || p.Item2 > maxPeak.Item2)
-						maxPeak = p;
-				}
-
-				readIdx = (readIdx + 1) % PEAK_COUNT;
-			}
-
-			var fallbackValue = currentValue * decay;
-			if (fallbackValue < val)
-				fallbackValue = val;
-
-			if (maxPeak != null && maxPeak.Item2 > fallbackValue)
-			{
-				currentValue = maxPeak.Item2;
-			}
-			else
-			{
-				currentValue = fallbackValue;
-			}
-
-			prevValue = val;
-			timeIndex++;
-
-			return currentValue;
-		}
 	}
 }
