@@ -17,5 +17,10 @@ namespace NoiseGate
 		{
 			return (double)(20 * Math.Log10(input));
 		}
+
+		public static double ComputeLpAlpha(double fc, double ts)
+		{
+			return (2 * Math.PI * ts * fc) / (2 * Math.PI * ts * fc + 1);
+		}
 	}
 }

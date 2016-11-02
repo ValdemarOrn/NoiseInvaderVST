@@ -59,6 +59,21 @@
     <ClInclude Include="AudioLib\Sse.h">
       <Filter>AudioLib</Filter>
     </ClInclude>
+    <ClInclude Include="Expander.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioLib\Transfer.h">
+      <Filter>AudioLib</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioLib\Butterworth.h">
+      <Filter>AudioLib</Filter>
+    </ClInclude>
+    <ClInclude Include="Indicators.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EnvelopeFollower.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffect.cpp">

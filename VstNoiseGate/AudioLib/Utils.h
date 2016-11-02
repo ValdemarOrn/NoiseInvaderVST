@@ -178,6 +178,11 @@ namespace AudioLib
 
 			return std::sqrt(sum / len);
 		}
+
+		static inline double ComputeLpAlpha(double fc, double ts)
+		{
+			return (2 * M_PI * ts * fc) / (2 * M_PI * ts * fc + 1);
+		}
 	};
 }
 

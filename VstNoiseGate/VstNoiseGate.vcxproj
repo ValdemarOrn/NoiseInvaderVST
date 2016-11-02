@@ -153,11 +153,16 @@
     <ClInclude Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffect.h" />
     <ClInclude Include="..\..\..\..\..\dev\vst_sdk2_4\vstsdk2.4 clean\public.sdk\source\vst2.x\audioeffectx.h" />
     <ClInclude Include="AudioLib\Biquad.h" />
+    <ClInclude Include="AudioLib\Butterworth.h" />
     <ClInclude Include="AudioLib\MathDefs.h" />
     <ClInclude Include="AudioLib\OnePoleFilters.h" />
     <ClInclude Include="AudioLib\Sse.h" />
+    <ClInclude Include="AudioLib\Transfer.h" />
     <ClInclude Include="AudioLib\Utils.h" />
     <ClInclude Include="AudioLib\ValueTables.h" />
+    <ClInclude Include="EnvelopeFollower.h" />
+    <ClInclude Include="Expander.h" />
+    <ClInclude Include="Indicators.h" />
     <ClInclude Include="NoiseGateVst.h" />
     <ClInclude Include="PeakDetector.h" />
   </ItemGroup>

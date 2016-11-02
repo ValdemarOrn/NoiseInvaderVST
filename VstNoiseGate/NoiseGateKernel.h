@@ -16,7 +16,7 @@ class NoiseGateKernel
 private:
 
 	float fs;
-		
+	
 	Biquad lowpass;
 	Biquad highpass;
 	PeakDetector detector;

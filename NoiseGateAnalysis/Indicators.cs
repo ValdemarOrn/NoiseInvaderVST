@@ -8,25 +8,39 @@ namespace NoiseGate
 {
 	class Sma
 	{
-		private Queue<double> queue;
+		private double[] queue;
+		private int sampleCount;
+
+		private int head;
 		private double sum;
 		private double dbDecayPerSample;
+		
 
-		public double DbDecayPerSample { get { return dbDecayPerSample; } }
-
-		public Sma(int samples)
+		public Sma(int sampleCount)
 		{
-			this.queue = new Queue<double>();
-			for (int i = 0; i < samples; i++)
-			{
-				queue.Enqueue(0.0);
-			}
+			this.sampleCount = sampleCount;
+			this.queue = new double[sampleCount];
+			for (int i = 0; i < sampleCount; i++)
+				queue[i] = 0.0;
+
+			head = 0;
+			sum = 0.0;
+			dbDecayPerSample = 0.0;
+		}
+
+		public double GetDbDecayPerSample()
+		{
+			return dbDecayPerSample;
 		}
 
 		public double Update(double sample)
 		{
-			var takeAway = queue.Dequeue();
-			queue.Enqueue(sample);
+			var takeAway = queue[head];
+			queue[head] = sample;
+			head++;
+			if (head >= sampleCount)
+				head = 0;
+
 			sum -= takeAway;
 			sum += sample;
 			
@@ -38,17 +52,17 @@ namespace NoiseGate
 			if (takeAwayDb < -150)
 				takeAwayDb = -150;
 
-			dbDecayPerSample = (sampleDb - takeAwayDb) / queue.Count;
+			dbDecayPerSample = (sampleDb - takeAwayDb) / sampleCount;
 
-			return sum / queue.Count;
+			return sum / sampleCount;
 		}
 	}
 
 	class Ema
 	{
-		private double value;
 		private double alpha;
-
+		private double value;
+		
 		public Ema(double alpha)
 		{
 			this.alpha = alpha;
@@ -63,9 +77,9 @@ namespace NoiseGate
 
 	class EmaLatch
 	{
-		private double value;
 		private double alpha;
 		private double latch;
+		private double value;
 		private double currentValue;
 
 		public EmaLatch(double alpha, double latch)

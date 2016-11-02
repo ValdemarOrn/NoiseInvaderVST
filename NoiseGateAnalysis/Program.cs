@@ -20,7 +20,6 @@ namespace NoiseGate
 		public static double ReleaseMs = 20;
 
 		private static double fs = 48000.0;
-		private static double ts = 1.0 / fs;
 		
 		public void Run()
 		{

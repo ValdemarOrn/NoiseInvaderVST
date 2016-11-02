@@ -1,51 +1,53 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AudioLib.TF;
+#pragma once
 
-namespace NoiseGate
+#include "AudioLib/Utils.h"
+#include "AudioLib/Biquad.h"
+#include "Indicators.h"
+namespace NoiseInvader
 {
 	class EnvelopeFollower
 	{
-		private const double EmaFc = 200.0;
-		private const double SmaPeriodSeconds = 0.01; // 10ms
-		private const double TimeoutPeriodSeconds = 0.01; // 10ms
-		private const double HoldSmootherFc = 200.0;
+	private:
+		const double InputFilterCutoff = 1800.0;
+		const double EmaFc = 200.0;
+		const double SmaPeriodSeconds = 0.01; // 10ms
+		const double TimeoutPeriodSeconds = 0.01; // 10ms
+		const double HoldSmootherFc = 200.0;
 
-		private double Fs;
-		private double ReleaseMs;
+		double Fs;
+		double ReleaseMs;
 
-		private Butterworth inputFilter;
-		private Sma sma;
-		private Ema ema;
-		private EmaLatch movementLatch;
+		AudioLib::Biquad* inputFilter;
+		Sma* sma;
+		Ema* ema;
+		EmaLatch* movementLatch;
 
-		private int triggerCounterTimeoutSamples;
-		private double slowDecay;
-		private double fastDecay;
-		private double holdAlpha;
+		int triggerCounterTimeoutSamples;
+		double slowDecay;
+		double fastDecay;
+		double holdAlpha;
 
-		private double hold;
-		private int lastTriggerCounter;
-		private double h1, h2, h3, h4;
-		private double holdFiltered;
+		double hold;
+		int lastTriggerCounter;
+		double h1, h2, h3, h4;
+		double holdFiltered;
 
-		public EnvelopeFollower(double fs, double releaseMs)
+	public:
+
+		EnvelopeFollower(double fs, double releaseMs)
 		{
 			Fs = fs;
-            double ts = 1.0 / fs;
-			
-			inputFilter = new Butterworth(fs);
-			inputFilter.Parameters[Butterworth.P_ORDER] = 6;
-			inputFilter.Parameters[Butterworth.P_CUTOFF_HZ] = 1800;
-			inputFilter.Update();
+			double ts = 1.0 / fs;
 
-			var emaAlpha = Utils.ComputeLpAlpha(EmaFc, ts);
+			inputFilter = new AudioLib::Biquad(AudioLib::Biquad::FilterType::LowPass, fs);
+			inputFilter->Frequency = InputFilterCutoff;
+			inputFilter->SetQ(1.0f);
+			inputFilter->Update();
+			
+			auto emaAlpha = AudioLib::Utils::ComputeLpAlpha(EmaFc, ts);
 
 			double slowDbDecayPerSample = -60 / (3000 / 1000.0 * fs);
-			slowDecay = Utils.Db2Gain(slowDbDecayPerSample);
+			slowDecay = AudioLib::Utils::DB2gain(slowDbDecayPerSample);
 
 			SetRelease(releaseMs);
 
@@ -53,48 +55,56 @@ namespace NoiseGate
 			ema = new Ema(emaAlpha);
 			movementLatch = new EmaLatch(0.005, 0.2); // frequency dependent, but not really that critical...
 
-	        triggerCounterTimeoutSamples = (int)(fs * TimeoutPeriodSeconds);
+			triggerCounterTimeoutSamples = (int)(fs * TimeoutPeriodSeconds);
 
-			holdAlpha = Utils.ComputeLpAlpha(HoldSmootherFc, ts);
+			holdAlpha = AudioLib::Utils::ComputeLpAlpha(HoldSmootherFc, ts);
 		}
 
-		public void SetRelease(double releaseMs)
+		~EnvelopeFollower()
+		{
+			delete inputFilter;
+			delete sma;
+			delete ema;
+			delete movementLatch;
+		}
+
+		void SetRelease(double releaseMs)
 		{
 			ReleaseMs = releaseMs;
 			double dbDecayPerSample = -60 / (ReleaseMs / 1000.0 * Fs);
-			fastDecay = Utils.Db2Gain(dbDecayPerSample);
+			fastDecay = AudioLib::Utils::DB2gain(dbDecayPerSample);
 		}
-		
-		public double GetOutput()
+
+		double GetOutput()
 		{
 			return holdFiltered;
 		}
 
-		public void ProcessEnvelope(double val)
+		void ProcessEnvelope(double val)
 		{
 			double combinedFiltered;
 			double decay;
 
 			// 1. Rectify the input signal
-			val = Math.Abs(val);
+			val = std::abs(val);
 
 			// 2. Band pass filter to ~  100hz - 2Khz
 			//lpValue = lpAlpha * val + (1 - lpAlpha) * lpValue;
-			var lpValue = inputFilter.Process(val);
+			auto lpValue = inputFilter->Process(val);
 			//hpSignal = hipassAlpha * lpSignal + (1 - hipassAlpha) * hpSignal
 
 			// rectify the lpValue again, because the resonance in the filter can cause a tiny bit of ringing and cause the values to go negative again
-			lpValue = Math.Abs(lpValue);
+			lpValue = std::abs(lpValue);
 
-			var mainInput = lpValue;
+			auto mainInput = lpValue;
 
 			// 3. Compute the EMA and SMA of the band-filtered signal. Also compute the per-sample dB decay baed on the SMA
-			var emaValue = ema.Update(mainInput);
-			var smaValue = sma.Update(mainInput);
+			auto emaValue = ema->Update(mainInput);
+			auto smaValue = sma->Update(mainInput);
 
 			// 4. use a latching low-pass classifier to determine if signal strength is generally increasing or decreasing.
 			// This removes spike from the signal where the SMA may move in the opposite direction for a short period
-			var movementValue = movementLatch.Update(sma.GetDbDecayPerSample() > 0);
+			auto movementValue = movementLatch->Update(sma->GetDbDecayPerSample() > 0);
 
 			// 5. If the movement is going up, prefer the faster moving EMA signal if it's above the SMA
 			// If the movement is going down, prefer the faster moving EMA signal if it's below the SMA
@@ -119,7 +129,7 @@ namespace NoiseGate
 			if (lastTriggerCounter > triggerCounterTimeoutSamples)
 				decay = fastDecay;
 			else
-				decay = Utils.Db2Gain(sma.GetDbDecayPerSample() * 1.2); // 1.2 is fudge factor to make the follower decay slightly faster than actual signal, so we gently bump into the peaks
+				decay = AudioLib::Utils::DB2gain(sma->GetDbDecayPerSample() * 1.2); // 1.2 is fudge factor to make the follower decay slightly faster than actual signal, so we gently bump into the peaks
 
 			// 7.5 Limit the decay speed in the general range of slowDecay...fastDecay, the slow decay is currently a fixed 3 seconds to -60dB value
 			if (decay > slowDecay)
@@ -140,5 +150,6 @@ namespace NoiseGate
 			//holdFiltered = holdFilter.Process(hold);
 			lastTriggerCounter++;
 		}
-	}
+
+	};
 }
