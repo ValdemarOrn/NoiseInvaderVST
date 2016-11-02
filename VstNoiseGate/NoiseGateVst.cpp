@@ -31,7 +31,7 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	sampleRate = 48000;
 
 	parameters[(int)Parameters::DetectorGain] = 0.5;
-	parameters[(int)Parameters::ReductionDb] = 0.0;
+	parameters[(int)Parameters::ReductionDb] = 0.5;
 	parameters[(int)Parameters::ThresholdDb] = 0.8;
 	parameters[(int)Parameters::Slope] = 0.5;
 	parameters[(int)Parameters::ReleaseMs] = 0.3;
@@ -65,7 +65,7 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 		kernel->DetectorGain = Utils::DB2gain(40 * value - 20);
 		break;
 	case Parameters::ReductionDb:
-		kernel->ReductionDb = -30 - (1 - value) * 120;
+		kernel->ReductionDb = -value * 100;
 		break;
 	case Parameters::ReleaseMs:
 		kernel->ReleaseMs = 10 + ValueTables::Get(value, ValueTables::Response2Dec) * 990;
