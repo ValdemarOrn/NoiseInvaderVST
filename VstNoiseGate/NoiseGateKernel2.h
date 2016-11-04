@@ -33,6 +33,9 @@ namespace NoiseInvader
 		double Slope;
 		double ReleaseMs;
 
+		// for readouts
+		double currentGainDb;
+
 		NoiseGateKernel2(int fs)
 			: envelopeFollower(fs, 100)
 			, expander()
@@ -63,6 +66,8 @@ namespace NoiseInvader
 		inline void Process(float* input, float* detectorInput, float* output, int len)
 		{
 			Sse::PreventDernormals();
+			double gainDb = 1.0;
+			double currGain = -1000;
 
 			for (size_t i = 0; i < len; i++)
 			{
@@ -71,13 +76,17 @@ namespace NoiseInvader
 				auto env = envelopeFollower.GetOutput();
 
 				expander.Expand(Utils::Gain2DB(env));
-				auto gainDb = expander.GetOutput();
-				
+				gainDb = expander.GetOutput();
 				gainDb = slewLimiter.Process(gainDb);
-				auto gain = Utils::DB2gain(gainDb);
 
+				if (gainDb > currGain)
+					currGain = gainDb;
+
+				auto gain = Utils::DB2gain(gainDb);
 				output[i] = input[i] * gain;
 			}
+
+			currentGainDb = currGain;
 		}
 
 	};

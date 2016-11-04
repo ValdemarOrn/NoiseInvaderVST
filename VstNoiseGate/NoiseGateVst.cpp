@@ -35,6 +35,7 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	parameters[(int)Parameters::ThresholdDb] = 0.8;
 	parameters[(int)Parameters::Slope] = 0.5;
 	parameters[(int)Parameters::ReleaseMs] = 0.3;
+	parameters[(int)Parameters::CurrentGain] = 0.0;
 	
 	createDevice();
 }
@@ -58,6 +59,7 @@ void NoiseGateVst::getProgramName(char* name)
 void NoiseGateVst::setParameter(VstInt32 index, float value)
 {
 	parameters[index] = value;
+	bool update = true;
 
 	switch ((Parameters)index)
 	{
@@ -76,9 +78,12 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 	case Parameters::ThresholdDb:
 		kernel->ThresholdDb = -ValueTables::Get(1 - value, ValueTables::Response2Oct) * 80;
 		break;
+	default:
+		update = false;
 	}
 
-	kernel->UpdateAll();
+	if (update)
+		kernel->UpdateAll();
 }
 
 float NoiseGateVst::getParameter(VstInt32 index)
@@ -105,6 +110,11 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 	case Parameters::ThresholdDb:
 		strcpy(label, "Threshold");
 		break;
+
+	// for readout only
+	case Parameters::CurrentGain:
+		strcpy(label, "Output Gain");
+		break;
 	}
 }
 
@@ -127,6 +137,10 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 	case Parameters::ThresholdDb:
 		sprintf(text, "%.1f", kernel->ThresholdDb);
 		break;
+
+	case Parameters::CurrentGain:
+		sprintf(text, "%.7f", kernel->currentGainDb);
+		break;
 	}
 }
 
@@ -147,6 +161,7 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 		strcpy(label, "");
 		break;
 	case Parameters::ThresholdDb:
+	case Parameters::CurrentGain:
 		strcpy(label, "dB");
 		break;
 	}
@@ -181,6 +196,8 @@ void NoiseGateVst::processReplacing(float** inputs, float** outputs, VstInt32 sa
     float* out = outputs[0];
     
 	kernel->Process(in, in, out, sampleFrames);
+	setParameterAutomated((int)Parameters::CurrentGain, kernel->currentGainDb / 150 + 1);
+	
 }
 
 void NoiseGateVst::setSampleRate(float sampleRate)

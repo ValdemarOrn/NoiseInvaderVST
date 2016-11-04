@@ -15,6 +15,8 @@ enum class Parameters
 	Slope,
 	ReleaseMs,
 
+	CurrentGain,
+
 	Count
 };
 

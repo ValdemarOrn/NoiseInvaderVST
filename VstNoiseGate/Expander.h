@@ -43,12 +43,12 @@ namespace NoiseInvader
 
 		void Expand(double dbVal)
 		{
-			if (dbVal < reductionDb)
-				dbVal = reductionDb;
+			if (isnan(outputDb) || isinf(outputDb))
+				outputDb = -150;
 
 			// 1. The two expansion curve form the upper and lower boundary of what the permitted "desired dB" value will be
 			auto upperDb = Compress(dbVal, thresholdDb, upperSlope, 4, true);
-			auto lowerDb = Compress(dbVal, thresholdDb + 6, lowerSlope, 4, true);
+			auto lowerDb = Compress(dbVal, thresholdDb + 4, lowerSlope, 4, true);
 
 			// 2. The status quo, if neither curve is "hit", is to increase or reduce the desired dB by the 
 			// change in input dB. This change is applied to whatever the current output dB currently is.
