@@ -33,6 +33,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AudioLib">
+      <HintPath>..\Libs\AudioLib.dll</HintPath>
+    </Reference>
+    <Reference Include="LowProfile.Visuals">
+      <HintPath>..\Libs\LowProfile.Visuals.dll</HintPath>
+    </Reference>
     <Reference Include="OxyPlot, Version=1.0.0.0, Culture=neutral, PublicKeyToken=638079a8f0bd61e9, processorArchitecture=MSIL">
       <HintPath>..\packages\OxyPlot.Core.1.0.0-unstable1966\lib\net45\OxyPlot.dll</HintPath>
       <Private>True</Private>
@@ -70,16 +76,6 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Libraries\LowProfile.Common\LowProfile.Visuals\LowProfile.Visuals.csproj">
-      <Project>{4cd32a63-494f-4769-a07d-802f1e9945a7}</Project>
-      <Name>LowProfile.Visuals</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\AudioLib\AudioLib\AudioLib.csproj">
-      <Project>{4905489d-6f81-4129-8780-744ced5b3269}</Project>
-      <Name>AudioLib</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

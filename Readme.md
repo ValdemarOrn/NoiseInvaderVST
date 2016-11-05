@@ -31,8 +31,6 @@ with
 
 This will export the vstmain function so that it is available as a function in your dll file. If you don't do this change, you can also specify a list of functions to be exported in VST, but I prefer to use this way instead.
 
-Finally, disable the C# projects in the visual studio solution, as some dependent libraries are not publically accessible (these are only used for analysis and are not involved in building the C++ plugin)
-
 ## License
 
 Am am releasing the code in this repository in to the public domain. Do with it whatever you please.
