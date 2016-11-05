@@ -3,12 +3,15 @@
 #include "AudioLib/Utils.h"
 #include "AudioLib/Biquad.h"
 #include "Indicators.h"
+#include "AudioLib/OnePoleFilters.h"
+
 namespace NoiseInvader
 {
 	class EnvelopeFollower
 	{
 	private:
-		const double InputFilterCutoff = 1800.0;
+		const double InputFilterHpCutoff = 100.0;
+		const double InputFilterCutoff = 2000.0;
 		const double EmaFc = 200.0;
 		const double SmaPeriodSeconds = 0.01; // 10ms
 		const double TimeoutPeriodSeconds = 0.01; // 10ms
@@ -17,6 +20,7 @@ namespace NoiseInvader
 		double Fs;
 		double ReleaseMs;
 
+		AudioLib::Hp1 hpFilter;
 		AudioLib::Biquad* inputFilter;
 		Sma* sma;
 		Ema* ema;
@@ -38,6 +42,8 @@ namespace NoiseInvader
 		{
 			Fs = fs;
 			double ts = 1.0 / fs;
+
+			hpFilter.SetFc(InputFilterHpCutoff / (fs * 0.5));
 
 			inputFilter = new AudioLib::Biquad(AudioLib::Biquad::FilterType::LowPass, fs);
 			inputFilter->Frequency = InputFilterCutoff;
@@ -89,7 +95,7 @@ namespace NoiseInvader
 			val = std::abs(val);
 
 			// 2. Band pass filter to ~  100hz - 2Khz
-			//lpValue = lpAlpha * val + (1 - lpAlpha) * lpValue;
+			val = hpFilter.Process(val);
 			auto lpValue = inputFilter->Process(val);
 			//hpSignal = hipassAlpha * lpSignal + (1 - hipassAlpha) * hpSignal
 

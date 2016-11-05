@@ -19,8 +19,8 @@ namespace NoiseGate
 		private double ReleaseMs;
 
 		private Butterworth inputFilter;
-		private Sma sma;
-		private Ema ema;
+		public Sma sma;
+		public Ema ema;
 		private EmaLatch movementLatch;
 
 		private int triggerCounterTimeoutSamples;
@@ -28,7 +28,7 @@ namespace NoiseGate
 		private double fastDecay;
 		private double holdAlpha;
 
-		private double hold;
+		public double hold;
 		private int lastTriggerCounter;
 		private double h1, h2, h3, h4;
 		private double holdFiltered;

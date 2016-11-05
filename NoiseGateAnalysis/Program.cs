@@ -14,10 +14,10 @@ namespace NoiseGate
 {
 	class Program
 	{
-		public static double ReductionDb = -76.7;
-		public static double ThresholdDb = -41;
-		public static double UpperSlope = 1.88;
-		public static double ReleaseMs = 301;
+		public static double ReductionDb = -40;
+		public static double ThresholdDb = -20;
+		public static double UpperSlope = 2;
+		public static double ReleaseMs = 20;
 
 		private static double fs = 48000.0;
 		
@@ -49,20 +49,18 @@ namespace NoiseGate
 			var rand = new Random();
 			Func<double> random = () => 2 * rand.NextDouble() - 1;
 			double decay = 1.0;
-			var sig = AudioLib.WaveFiles.ReadWaveFile(@"C:\Users\Valdemar\Desktop\NoiseGateTest.wav");
 
-			for (int i = 0; i < sig[0].Length; i++)
+			for (int i = 0; i < 20000; i++)
 			{
-				/*var x = (Math.Sin(i / fs * 2 * Math.PI * 300) + random() * 0.4) *decay;
+				var x = (Math.Sin(i / fs * 2 * Math.PI * 300) + random() * 0.4) *decay;
 				decay *= 0.9998;
 				if (i < 1000)
 					x = random() * 0.001;
 				else if (i > 12000)
 				{
 					x = random() * 0.001;
-				}*/
-				var x = sig[0][i];
-
+				}
+				
 				signalValues.Add(x);
 				follower.ProcessEnvelope(x);
 				var env = follower.GetOutput();
