@@ -74,10 +74,10 @@
     <ClInclude Include="EnvelopeFollower.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="NoiseGateKernel2.h">
+    <ClInclude Include="SlewLimiter.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="SlewLimiter.h">
+    <ClInclude Include="NoiseGateKernel.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -92,9 +92,6 @@
       <Filter>Vstsdk</Filter>
     </ClCompile>
     <ClCompile Include="NoiseGateVst.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NoiseGateKernel.h">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AudioLib\Biquad.cpp">

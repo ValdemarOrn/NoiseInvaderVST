@@ -12,7 +12,7 @@ using namespace AudioLib;
 
 namespace NoiseInvader
 {
-	class NoiseGateKernel2
+	class NoiseGateKernel
 	{
 	private:
 
@@ -36,7 +36,7 @@ namespace NoiseInvader
 		// for readouts
 		double currentGainDb;
 
-		NoiseGateKernel2(int fs)
+		NoiseGateKernel(int fs)
 			: envelopeFollower(fs, 100)
 			, expander()
 			, slewLimiter(fs)
@@ -51,7 +51,7 @@ namespace NoiseInvader
 			UpdateAll();
 		}
 
-		inline ~NoiseGateKernel2()
+		inline ~NoiseGateKernel()
 		{
 
 		}
@@ -63,7 +63,13 @@ namespace NoiseInvader
 			slewLimiter.UpdateDb60(2.0, ReleaseMs);
 		}
 
-		inline void Process(float* input, float* detectorInput, float* output, int len)
+		inline void Process(
+			float* inputL, 
+			float* inputR, 
+			float* detectorInput, 
+			float* outputL, 
+			float* outputR,
+			int len)
 		{
 			Sse::PreventDernormals();
 			double gainDb = 1.0;
@@ -83,7 +89,8 @@ namespace NoiseInvader
 					currGain = gainDb;
 
 				auto gain = Utils::DB2gain(gainDb);
-				output[i] = input[i] * gain;
+				outputL[i] = inputL[i] * gain;
+				outputR[i] = inputR[i] * gain;
 			}
 
 			currentGainDb = currGain;

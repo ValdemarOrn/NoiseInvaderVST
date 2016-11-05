@@ -19,8 +19,9 @@ AudioEffect* createEffectInstance (audioMasterCallback audioMaster)
 NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	: AudioEffectX (audioMaster, 1, (int)Parameters::Count)
 {
-	setNumInputs(1); // Mono in
-	setNumOutputs(1); // Mono out
+	detectorInput = 0;
+	setNumInputs(4); // 2x stereo in, only left channel used on second input
+	setNumOutputs(2); // 1x stereo out
 	setUniqueID(91572785); // Random ID
 	canProcessReplacing();
 	canDoubleReplacing(false);
@@ -30,12 +31,13 @@ NoiseGateVst::NoiseGateVst(audioMasterCallback audioMaster)
 	kernel = 0;
 	sampleRate = 48000;
 
+	parameters[(int)Parameters::DetectorInput] = 0.0;
 	parameters[(int)Parameters::DetectorGain] = 0.5;
 	parameters[(int)Parameters::ReductionDb] = 0.5;
 	parameters[(int)Parameters::ThresholdDb] = 0.8;
 	parameters[(int)Parameters::Slope] = 0.5;
 	parameters[(int)Parameters::ReleaseMs] = 0.3;
-	parameters[(int)Parameters::CurrentGain] = 0.0;
+	//parameters[(int)Parameters::CurrentGain] = 0.0;
 	
 	createDevice();
 }
@@ -44,6 +46,46 @@ NoiseGateVst::~NoiseGateVst()
 {
 	delete kernel;
 	kernel = 0;
+}
+
+bool NoiseGateVst::getInputProperties(VstInt32 index, VstPinProperties* properties)
+{
+	if (index == 0) // 0-1 = Main in
+	{
+		properties->arrangementType = kSpeakerArrStereo;
+		properties->flags = kVstPinIsStereo;
+		sprintf(properties->shortLabel, "Main In");
+		sprintf(properties->label, "Main Input");
+		return true;
+	}
+	else if (index == 2) // 2-3 = Aux in
+	{
+		properties->arrangementType = kSpeakerArrStereo;
+		properties->flags = kVstPinIsStereo;
+		sprintf(properties->shortLabel, "Aux");
+		sprintf(properties->label, "Aux Input");
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool NoiseGateVst::getOutputProperties(VstInt32 index, VstPinProperties* properties)
+{
+	if (index == 0) // 0-1 = Main out
+	{
+		properties->arrangementType = kSpeakerArrStereo;
+		properties->flags = kVstPinIsStereo;
+		sprintf(properties->shortLabel, "Output");
+		sprintf(properties->label, "Main Output");
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void NoiseGateVst::setProgramName(char* name)
@@ -63,6 +105,9 @@ void NoiseGateVst::setParameter(VstInt32 index, float value)
 
 	switch ((Parameters)index)
 	{
+	case Parameters::DetectorInput:
+		detectorInput = (int)(value * 1.999);
+		break;
 	case Parameters::DetectorGain:
 		kernel->DetectorGain = Utils::DB2gain(40 * value - 20);
 		break;
@@ -95,6 +140,9 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
+	case Parameters::DetectorInput:
+		strcpy(label, "Detection");
+		break;
 	case Parameters::DetectorGain:
 		strcpy(label, "Sensitivity");
 		break;
@@ -112,9 +160,9 @@ void NoiseGateVst::getParameterName(VstInt32 index, char* label)
 		break;
 
 	// for readout only
-	case Parameters::CurrentGain:
+	/*case Parameters::CurrentGain:
 		strcpy(label, "Output Gain");
-		break;
+		break;*/
 	}
 }
 
@@ -122,6 +170,14 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 {
 	switch ((Parameters)index)
 	{
+	case Parameters::DetectorInput:
+		if (detectorInput == 0)
+			sprintf(text, "Main Left");
+		else if (detectorInput == 1)
+			sprintf(text, "Aux Left");
+		else
+			sprintf(text, "-----");
+		break;
 	case Parameters::DetectorGain:
 		sprintf(text, "%.2f", Utils::Gain2DB(kernel->DetectorGain));
 		break;
@@ -137,10 +193,9 @@ void NoiseGateVst::getParameterDisplay(VstInt32 index, char* text)
 	case Parameters::ThresholdDb:
 		sprintf(text, "%.1f", kernel->ThresholdDb);
 		break;
-
-	case Parameters::CurrentGain:
+	/*case Parameters::CurrentGain:
 		sprintf(text, "%.7f", kernel->currentGainDb);
-		break;
+		break;*/
 	}
 }
 
@@ -148,6 +203,9 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 {
 	switch ((Parameters)index)
 	{
+	case Parameters::DetectorInput:
+		strcpy(label, "");
+		break;
 	case Parameters::DetectorGain:
 		strcpy(label, "dB");
 		break;
@@ -161,7 +219,7 @@ void NoiseGateVst::getParameterLabel(VstInt32 index, char* label)
 		strcpy(label, "");
 		break;
 	case Parameters::ThresholdDb:
-	case Parameters::CurrentGain:
+	//case Parameters::CurrentGain:
 		strcpy(label, "dB");
 		break;
 	}
@@ -192,12 +250,16 @@ VstInt32 NoiseGateVst::getVendorVersion()
 
 void NoiseGateVst::processReplacing(float** inputs, float** outputs, VstInt32 sampleFrames)
 {
-    float* in  = inputs[0];
-    float* out = outputs[0];
+    float* inL  = inputs[0];
+	float* inR = inputs[1];
+
+    float* outL = outputs[0];
+	float* outR = outputs[1];
+
+	float* detector = detectorInput == 0 ? inputs[0] : inputs[2];
     
-	kernel->Process(in, in, out, sampleFrames);
-	setParameterAutomated((int)Parameters::CurrentGain, kernel->currentGainDb / 150 + 1);
-	
+	kernel->Process(inL, inR, detector, outL, outR, sampleFrames);
+	//setParameterAutomated((int)Parameters::CurrentGain, kernel->currentGainDb / 150 + 1);
 }
 
 void NoiseGateVst::setSampleRate(float sampleRate)
@@ -209,7 +271,7 @@ void NoiseGateVst::setSampleRate(float sampleRate)
 void NoiseGateVst::createDevice()
 {
 	delete kernel;
-	kernel = new NoiseGateKernel2(sampleRate);
+	kernel = new NoiseGateKernel(sampleRate);
 
 	// re-apply parameters
 	for (size_t i = 0; i < (int)Parameters::Count; i++)

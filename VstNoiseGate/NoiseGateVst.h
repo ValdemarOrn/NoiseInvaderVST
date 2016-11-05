@@ -2,12 +2,13 @@
 #define _NoiseGateVst
 
 #include "public.sdk/source/vst2.x/audioeffectx.h"
-#include "NoiseGateKernel2.h"
+#include "NoiseGateKernel.h"
 
 enum class Parameters
 {
 	// Gain Settings
-	DetectorGain = 0,
+	DetectorInput = 0,
+	DetectorGain,
 
 	// Noise Gate Settings
 	ReductionDb,
@@ -15,7 +16,7 @@ enum class Parameters
 	Slope,
 	ReleaseMs,
 
-	CurrentGain,
+	//CurrentGain,
 
 	Count
 };
@@ -28,6 +29,9 @@ public:
 	NoiseGateVst(audioMasterCallback audioMaster);
 	~NoiseGateVst();
 	
+	bool NoiseGateVst::getInputProperties(VstInt32 index, VstPinProperties* properties);
+	bool NoiseGateVst::getOutputProperties(VstInt32 index, VstPinProperties* properties);
+
 	// Programs
 	virtual void setProgramName (char* name);
 	virtual void getProgramName (char* name);
@@ -53,7 +57,8 @@ public:
 protected:
 	float parameters[(int)Parameters::Count];
 	char programName[kVstMaxProgNameLen + 1];
-	NoiseGateKernel2* kernel;
+	int detectorInput;
+	NoiseGateKernel* kernel;
 };
 
 #endif

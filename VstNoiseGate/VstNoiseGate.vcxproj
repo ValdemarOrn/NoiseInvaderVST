@@ -163,7 +163,7 @@
     <ClInclude Include="EnvelopeFollower.h" />
     <ClInclude Include="Expander.h" />
     <ClInclude Include="Indicators.h" />
-    <ClInclude Include="NoiseGateKernel2.h" />
+    <ClInclude Include="NoiseGateKernel.h" />
     <ClInclude Include="NoiseGateVst.h" />
     <ClInclude Include="PeakDetector.h" />
     <ClInclude Include="SlewLimiter.h" />
@@ -176,7 +176,6 @@
     <ClCompile Include="AudioLib\Utils.cpp" />
     <ClCompile Include="AudioLib\ValueTables.cpp" />
     <ClCompile Include="NoiseGateVst.cpp" />
-    <ClCompile Include="NoiseGateKernel.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
