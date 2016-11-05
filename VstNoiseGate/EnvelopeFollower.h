@@ -147,7 +147,6 @@ namespace NoiseInvader
 			h4 = holdAlpha * h3 + (1 - holdAlpha) * h4;
 
 			holdFiltered = h4;
-			//holdFiltered = holdFilter.Process(hold);
 			lastTriggerCounter++;
 		}
 

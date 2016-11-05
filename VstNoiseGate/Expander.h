@@ -33,7 +33,7 @@ namespace NoiseInvader
 			this->thresholdDb = thresholdDb;
 			this->reductionDb = reductionDb;
 			upperSlope = slope;
-			lowerSlope = slope * 3;
+			lowerSlope = slope * 2;
 		}
 
 		inline double GetOutput()

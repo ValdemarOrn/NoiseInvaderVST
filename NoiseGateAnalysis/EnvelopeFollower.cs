@@ -9,6 +9,7 @@ namespace NoiseGate
 {
 	class EnvelopeFollower
 	{
+		private const double InputFilterCutoff = 1800.0;
 		private const double EmaFc = 200.0;
 		private const double SmaPeriodSeconds = 0.01; // 10ms
 		private const double TimeoutPeriodSeconds = 0.01; // 10ms
@@ -38,8 +39,8 @@ namespace NoiseGate
             double ts = 1.0 / fs;
 			
 			inputFilter = new Butterworth(fs);
-			inputFilter.Parameters[Butterworth.P_ORDER] = 6;
-			inputFilter.Parameters[Butterworth.P_CUTOFF_HZ] = 1800;
+			inputFilter.Parameters[Butterworth.P_ORDER] = 2;
+			inputFilter.Parameters[Butterworth.P_CUTOFF_HZ] = InputFilterCutoff;
 			inputFilter.Update();
 
 			var emaAlpha = Utils.ComputeLpAlpha(EmaFc, ts);
@@ -137,7 +138,6 @@ namespace NoiseGate
 			h4 = holdAlpha * h3 + (1 - holdAlpha) * h4;
 
 			holdFiltered = h4;
-			//holdFiltered = holdFilter.Process(hold);
 			lastTriggerCounter++;
 		}
 	}
