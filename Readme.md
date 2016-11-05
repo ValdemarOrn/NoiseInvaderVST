@@ -11,9 +11,9 @@ Get the latest download from the **[Release page](https://github.com/ValdemarOrn
 This plugin works on 32- and 64 bit Windows platforms.
 If you get get an error while loading the plugin in your DAW, you may need to download and install the latest **[Visual C++ Runtime available directly from Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=48145)**. 
 
-## How it works
+## How to Install and use
 
-The manual contains an in-depth explanation of the how the algorithm works. It is included with in the plugin release zip archive, but is also **[available online](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/download/2016-01-12/Noise.Invader.Manual.pdf)**.
+A Quick Start guide is **[available online](https://github.com/ValdemarOrn/NoiseInvaderVST/releases/download/2016-11-05_02/Noise.Invader.-.Quick.Start.pdf)**.
 
 ## Building from Source
 
@@ -30,6 +30,8 @@ with
     #define VST_EXPORT __declspec(dllexport)
 
 This will export the vstmain function so that it is available as a function in your dll file. If you don't do this change, you can also specify a list of functions to be exported in VST, but I prefer to use this way instead.
+
+Finally, disable the C# projects in the visual studio solution, as some dependent libraries are not publically accessible (these are only used for analysis and are not involved in building the C++ plugin)
 
 ## License
 
