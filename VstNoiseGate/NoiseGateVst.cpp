@@ -50,7 +50,7 @@ NoiseGateVst::~NoiseGateVst()
 
 bool NoiseGateVst::getInputProperties(VstInt32 index, VstPinProperties* properties)
 {
-	if (index == 0) // 0-1 = Main in
+	if (index == 0 || index == 1) // 0-1 = Main in
 	{
 		properties->arrangementType = kSpeakerArrStereo;
 		properties->flags = kVstPinIsStereo;
@@ -58,7 +58,7 @@ bool NoiseGateVst::getInputProperties(VstInt32 index, VstPinProperties* properti
 		sprintf(properties->label, "Main Input");
 		return true;
 	}
-	else if (index == 2) // 2-3 = Aux in
+	else if (index == 2 || index == 3) // 2-3 = Aux in
 	{
 		properties->arrangementType = kSpeakerArrStereo;
 		properties->flags = kVstPinIsStereo;
@@ -74,7 +74,7 @@ bool NoiseGateVst::getInputProperties(VstInt32 index, VstPinProperties* properti
 
 bool NoiseGateVst::getOutputProperties(VstInt32 index, VstPinProperties* properties)
 {
-	if (index == 0) // 0-1 = Main out
+	if (index == 0 || index == 1) // 0-1 = Main out
 	{
 		properties->arrangementType = kSpeakerArrStereo;
 		properties->flags = kVstPinIsStereo;
